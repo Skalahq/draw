@@ -1,10 +1,15 @@
 "use client";
 
 import { createParts } from "@ui-sdk/react/primitive";
-import { memo, useSyncExternalStore, type ReactNode, type Ref } from "react";
+import { memo, useCallback, useLayoutEffect, useRef, useSyncExternalStore, type ComponentType, type ReactNode, type Ref } from "react";
 import { canvasPrimitive, type CanvasOptions } from "./canvas.js";
-import type { DrawNode } from "./core.js";
+import type { DrawController, DrawNode, Size } from "./core.js";
+import type { ForeignNodeRenderer, MountedNodeRenderer, NodeRenderProps } from "./node-renderer.js";
 import { selectTool } from "./tools.js";
+
+export type { ForeignNodeRenderer, MountedNodeRenderer, NodeRenderProps } from "./node-renderer.js";
+export type NodeRenderer = { render: ComponentType<NodeRenderProps> } | ForeignNodeRenderer;
+export type NodeRenderers = Readonly<Record<string, NodeRenderer | undefined>>;
 
 const Parts = createParts(canvasPrimitive, { root: "div", frame: "div", world: "div", node: "div" });
 
@@ -14,30 +19,71 @@ export type DrawCanvasProps = CanvasOptions & {
   "aria-label"?: string;
   "aria-describedby"?: string;
   renderNode?: (node: DrawNode) => ReactNode;
+  nodeRenderers?: NodeRenderers;
   getNodeLabel?: (node: DrawNode) => string;
 };
 
-const NodeShell = memo(function NodeShell({ node, renderNode, getNodeLabel, resizable }: {
+function ForeignContent({ renderer, node, resize }: NodeRenderProps & { renderer: ForeignNodeRenderer }) {
+  const container = useRef<HTMLDivElement>(null);
+  const mounted = useRef<MountedNodeRenderer>(null);
+
+  useLayoutEffect(() => {
+    const instance = renderer.mount(container.current!);
+    mounted.current = instance;
+    return () => {
+      mounted.current = null;
+      instance.dispose();
+    };
+  }, [renderer]);
+
+  useLayoutEffect(() => {
+    mounted.current?.update({ node, resize });
+  }, [renderer, node, resize]);
+
+  return <div ref={container} className="draw-node-content" data-draw-interactive="" />;
+}
+
+const NodeShell = memo(function NodeShell({ controller, node, renderer, usesRegistry, renderNode, getNodeLabel, selectable }: {
+  controller: DrawController;
   node: DrawNode;
+  renderer: NodeRenderer | undefined;
+  usesRegistry: boolean;
   renderNode: DrawCanvasProps["renderNode"];
   getNodeLabel: DrawCanvasProps["getNodeLabel"];
-  resizable: boolean;
+  selectable: boolean;
 }) {
   const { x, y, width, height } = node.bounds;
+  const label = getNodeLabel?.(node) ?? node.type;
+  const id = node.id;
+  const resize = useCallback((size: Size) => controller.commands.resizeNode(id, size), [controller, id]);
+  const ReactContent = renderer && "render" in renderer ? renderer.render : undefined;
   return (
     <Parts.Node
-      value={node.id}
+      value={id}
       className="draw-node"
-      aria-label={getNodeLabel?.(node) ?? node.type}
+      aria-label={label}
       style={{ left: x, top: y, width: `var(--draw-preview-width, ${width}px)`, height: `var(--draw-preview-height, ${height}px)` }}
     >
-      {renderNode?.(node) ?? <span>{node.type}</span>}
-      {resizable && <span aria-hidden="true" className="draw-resize" data-draw-resize={node.id} />}
+      {ReactContent ? (
+        <div key={node.type} className="draw-node-content" data-draw-interactive="">
+          <ReactContent node={node} resize={resize} />
+        </div>
+      ) : renderer && "mount" in renderer ? (
+        <ForeignContent key={node.type} renderer={renderer} node={node} resize={resize} />
+      ) : (
+        renderNode?.(node) ?? (usesRegistry
+          ? <span className="draw-node-placeholder">Unknown node type: {node.type}</span>
+          : <span>{node.type}</span>)
+      )}
+      {selectable && usesRegistry ? (
+        <button type="button" className="draw-move" aria-label={`Move ${label}`} data-draw-move={id} />
+      ) : null}
+      {selectable ? <span aria-hidden="true" className="draw-resize" data-draw-resize={id} /> : null}
     </Parts.Node>
   );
 });
 
-export function DrawCanvas({ controller, tool, renderNode, getNodeLabel, className, ...props }: DrawCanvasProps) {
+export function DrawCanvas({ controller, tool, renderNode, nodeRenderers, getNodeLabel, className, ...props }: DrawCanvasProps) {
   const document = useSyncExternalStore(controller.subscribeCommitted, controller.getSnapshot, controller.getSnapshot);
   return (
     <Parts.Root
@@ -49,7 +95,16 @@ export function DrawCanvas({ controller, tool, renderNode, getNodeLabel, classNa
       <Parts.Frame className="draw-frame">
         <Parts.World className="draw-world">
           {document.nodes.map((node) => (
-            <NodeShell key={node.id} node={node} renderNode={renderNode} getNodeLabel={getNodeLabel} resizable={tool === selectTool} />
+            <NodeShell
+              key={node.id}
+              controller={controller}
+              node={node}
+              renderer={nodeRenderers && Object.hasOwn(nodeRenderers, node.type) ? nodeRenderers[node.type] : undefined}
+              usesRegistry={nodeRenderers !== undefined}
+              renderNode={renderNode}
+              getNodeLabel={getNodeLabel}
+              selectable={tool === selectTool}
+            />
           ))}
         </Parts.World>
       </Parts.Frame>

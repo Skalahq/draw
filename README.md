@@ -14,6 +14,8 @@ On Linux, use `bun run --bun playwright install --with-deps chromium` if Chromiu
 
 For local editing, install [Portless](https://github.com/vercel-labs/portless) globally, then run `bun run dev` and open the named URL it prints. Run `PORTLESS=0 bun run dev` to bypass the proxy. Portless is not needed for `bun run check`.
 
+Open `/workflow` on the demo server to try live React and Solid nodes, an unregistered node, and the committed document snapshot.
+
 ## Embed in React 19
 
 Import `createDrawController` and the tools from `@skalahq/draw/core`, `DrawCanvas` from `@skalahq/draw/react`, and `@skalahq/draw/styles.css` once. The canvas needs a height from its host. React and React DOM are supplied by the host, not bundled.
@@ -22,11 +24,19 @@ Create one controller per open document and pass it to `DrawCanvas`. Host contro
 
 Pass the active `tool` explicitly: `selectTool`, `panTool`, `insertNodeTool(createNode)`, or a host-defined `CanvasTool`. With no active tool, pointer presses don't edit the document. The demo's **Stamp marker** tool converts its pointer release from client pixels to canvas units with `context.toCanvas`, then inserts through `context.commands.insertNode`.
 
-- Select moves a node by dragging its shell. Drag the selected node's bottom-right handle to resize; Escape cancels either gesture.
+- Select moves a node by dragging its handle or non-interactive shell. Drag the selected node's bottom-right handle to resize; Escape cancels either gesture.
 - Use Pan to drag the viewport, or scroll to pan and Ctrl/⌘-scroll to zoom. With canvas focus, `+`, `-`, and `0` control zoom.
 - With an insertion tool active, Enter inserts at the viewport center. `[` and `]` cycle the selection, arrows move it (Shift for larger steps), and Delete removes it. Ctrl/⌘+Z undoes; add Shift to redo.
 
-The structural CSS only positions the canvas, nodes, and handles. Style `.draw-node[data-selected]` and `.draw-resize` in the host for a visible selection and resize affordance. `renderNode` supplies node content, and `getNodeLabel` gives each node an accessible name.
+The structural CSS only positions the canvas, nodes, and handles. Style `.draw-node[data-selected]`, `.draw-move`, and `.draw-resize` in the host for visible affordances. `getNodeLabel` gives each node an accessible name.
+
+### Render live nodes
+
+Pass `nodeRenderers` to resolve each stable document node type. Use `{ render: MyComponent }` for React content. For content from another runtime, use `{ mount(container) { … } }`. `mount` receives a Draw-owned container and returns `{ update(props), dispose() }`. Draw calls `update` after mounting and when the committed node changes; `dispose` releases the runtime and clears its content when the renderer is replaced, the node is removed, or the canvas unmounts. Keep renderer entries stable across host rerenders to avoid remounting them.
+
+Both renderers receive `NodeRenderProps`: the immutable `node` and a `resize({ width, height })` command returning whether the bounds changed. DOM layout doesn't write bounds. The content keeps native input and focus; use the separate Move button to drag, or activate it with the keyboard and use the canvas arrows.
+
+The existing `renderNode(node)` callback still works and is the fallback for types not listed in `nodeRenderers`. Without fallback content, unregistered types in a registry-backed canvas use a movable placeholder without changing the document.
 
 ## Editable JSON
 

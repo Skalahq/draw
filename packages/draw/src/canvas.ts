@@ -10,6 +10,7 @@ export type CanvasOptions = {
 type PrimitiveOptions = { documentController: DrawController; tool?: CanvasTool };
 type CanvasState = { viewport: Viewport; selected: string | null };
 type CanvasApi = {
+  click(event: MouseEvent, root: HTMLElement): void;
   keyDown(event: KeyboardEvent, root: HTMLElement): void;
   wheel(event: WheelEvent, root: HTMLElement): void;
   pointerDown(event: PointerEvent, root: HTMLElement): void;
@@ -23,7 +24,7 @@ type CanvasSlots = {
 };
 
 const initialViewport = { x: 0, y: 0, zoom: 1 };
-const nativeControls = "input, textarea, select, button, a[href], summary, [contenteditable], [tabindex], [data-draw-interactive]";
+const nativeControls = "input, textarea, select, label, button:not([data-draw-move]), a[href], summary, [contenteditable], [tabindex], [data-draw-interactive]";
 const arrows: Readonly<Record<string, Point | undefined>> = {
   ArrowLeft: { x: -1, y: 0 },
   ArrowRight: { x: 1, y: 0 },
@@ -106,6 +107,15 @@ export const canvasPrimitive = definePrimitive<PrimitiveOptions, CanvasState, Ca
       },
     };
 
+    function selectMoveHandle(target: Element) {
+      const id = target.closest("[data-draw-move]")?.getAttribute("data-draw-move");
+      if (!id) return;
+      const node = toolContext.getSnapshot().nodes.find((node) => node.id === id);
+      if (!node) return;
+      toolContext.select(node.id);
+      return node;
+    }
+
     function reveal(node: DrawNode) {
       const { x, y, width, height } = node.bounds;
       viewport.reveal({ left: x, top: y, right: x + width, bottom: y + height }, { padding: 16 });
@@ -167,6 +177,15 @@ export const canvasPrimitive = definePrimitive<PrimitiveOptions, CanvasState, Ca
 
     return {
       keyDown,
+      click(event: MouseEvent, root: HTMLElement) {
+        if (event.detail !== 0 || stopDrag || options().tool !== selectTool) return;
+        const target = targetInCanvas(event.target, root);
+        const node = target && selectMoveHandle(target);
+        if (node) {
+          root.focus({ preventScroll: true });
+          reveal(node);
+        }
+      },
       wheel(event: WheelEvent, root: HTMLElement) {
         if (targetInCanvas(event.target, root)) {
           if (stopDrag) event.preventDefault();
@@ -179,10 +198,15 @@ export const canvasPrimitive = definePrimitive<PrimitiveOptions, CanvasState, Ca
         root.focus({ preventScroll: true });
         const tool = options().tool;
         if (!tool) return;
-        const resizeId = tool === selectTool ? target.closest("[data-draw-resize]")?.getAttribute("data-draw-resize") : null;
+        const moveNode = tool === selectTool ? selectMoveHandle(target) : undefined;
+        const resizeId = tool === selectTool && !moveNode
+          ? target.closest("[data-draw-resize]")?.getAttribute("data-draw-resize")
+          : null;
         const resizeNode = resizeId ? toolContext.getSnapshot().nodes.find(({ id }) => id === resizeId) : undefined;
-        const gesture = resizeNode
-          ? boundsGesture(toolContext, resizeNode, viewport.toCanvas(event.clientX, event.clientY), true)
+        const handleNode = moveNode ?? resizeNode;
+        if (moveNode) event.preventDefault();
+        const gesture = handleNode
+          ? boundsGesture(toolContext, handleNode, viewport.toCanvas(event.clientX, event.clientY), !!resizeNode)
           : tool.pointerDown?.(toolContext, event);
         if (!gesture) return;
         stopDrag = bindDrag(root, event, {
@@ -208,6 +232,7 @@ export const canvasPrimitive = definePrimitive<PrimitiveOptions, CanvasState, Ca
         return () => el.removeEventListener("wheel", wheel);
       },
       on: {
+        click: (event, { api, el }) => { if (el) api.click(event, el); },
         pointerdown: (event, { api, el }) => { if (el) api.pointerDown(event, el); },
         keydown: (event, { api, el }) => { if (el) api.keyDown(event, el); },
       },
