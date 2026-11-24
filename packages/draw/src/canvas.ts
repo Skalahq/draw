@@ -1,14 +1,16 @@
 import { announce, bindDrag, createViewport, definePrimitive, live, type SlotDefinition, type Viewport } from "@ui-sdk/core";
 import type { DrawController, DrawNode, Point } from "./core.js";
+import { createConnectionEditing, type ConnectionViewState } from "./connection-editing.js";
+import type { ConnectionGeometryOptions } from "./connections.js";
 import { boundsGesture, panTool, selectTool, type CanvasTool, type ToolContext } from "./tools.js";
 
-export type CanvasOptions = {
+export type CanvasOptions = ConnectionGeometryOptions & {
   controller: DrawController;
   tool?: CanvasTool;
 };
 
-type PrimitiveOptions = { documentController: DrawController; tool?: CanvasTool };
-type CanvasState = { viewport: Viewport; selected: string | null };
+type PrimitiveOptions = Omit<CanvasOptions, "controller"> & { documentController: DrawController };
+type CanvasState = { viewport: Viewport; selected: string | null; connectionView: ConnectionViewState };
 type CanvasApi = {
   click(event: MouseEvent, root: HTMLElement): void;
   keyDown(event: KeyboardEvent, root: HTMLElement): void;
@@ -21,6 +23,7 @@ type CanvasSlots = {
   frame: SlotDefinition<CanvasState, CanvasApi, {}>;
   world: SlotDefinition<CanvasState, CanvasApi, {}>;
   node: SlotDefinition<CanvasState, CanvasApi, { value: string }>;
+  connectionView: SlotDefinition<CanvasState, CanvasApi, {}, ConnectionViewState>;
 };
 
 const initialViewport = { x: 0, y: 0, zoom: 1 };
@@ -40,14 +43,15 @@ function targetInCanvas(target: EventTarget | null, root: HTMLElement): Element 
 
 export const canvasPrimitive = definePrimitive<PrimitiveOptions, CanvasState, CanvasApi, CanvasSlots>({
   name: "draw-canvas",
-  options: { documentController: "value", tool: "value" },
-  state: () => ({ viewport: initialViewport, selected: null }),
-  live: ["viewport"],
+  options: { documentController: "value", tool: "value", getPorts: "value", getConnectionPath: "value" },
+  state: () => ({ viewport: initialViewport, selected: null, connectionView: {} }),
+  live: ["viewport", "connectionView"],
   api(context) {
     const { element, options, store } = context;
     const viewport = createViewport(context, { key: "viewport", surface: () => element("frame") });
     let stopDrag: (() => void) | undefined;
     let previewElement: HTMLElement | undefined;
+    let previewingConnectedNode = false;
     let previous = options();
 
     function clearPreview() {
@@ -56,6 +60,8 @@ export const canvasPrimitive = definePrimitive<PrimitiveOptions, CanvasState, Ca
       previewElement.style.removeProperty("--draw-preview-width");
       previewElement.style.removeProperty("--draw-preview-height");
       previewElement.removeAttribute("data-draw-preview");
+      if (previewingConnectedNode) writeConnections({ nodePreview: undefined });
+      previewingConnectedNode = false;
       previewElement = undefined;
     }
 
@@ -63,14 +69,29 @@ export const canvasPrimitive = definePrimitive<PrimitiveOptions, CanvasState, Ca
       stopDrag?.();
       stopDrag = undefined;
       clearPreview();
+      connectionEditing.clearDraft();
     }
 
     context.onDestroy(cancelDrag);
     context.onOptions((next) => {
-      if (next.documentController !== previous.documentController || next.tool !== previous.tool) cancelDrag();
-      if (next.documentController !== previous.documentController) store.set({ selected: null, viewport: initialViewport });
+      if (next.documentController !== previous.documentController || next.tool !== previous.tool) {
+        cancelDrag();
+        connectionEditing.cancelKeyboard();
+        if (store.get().connectionView.port) writeConnections({ port: undefined });
+      }
+      if (next.documentController !== previous.documentController) {
+        store.set({ selected: null, viewport: initialViewport, connectionView: {} });
+      }
       previous = next;
     });
+
+    function writeConnections(patch: Partial<ConnectionViewState>) {
+      store.set({ connectionView: { ...store.get().connectionView, ...patch } });
+    }
+
+    function nodeLabel(node: DrawNode) {
+      return element("node", node.id)?.getAttribute("aria-label") ?? node.type;
+    }
 
     const toolContext: ToolContext = {
       get commands() { return options().documentController.commands; },
@@ -89,7 +110,9 @@ export const canvasPrimitive = definePrimitive<PrimitiveOptions, CanvasState, Ca
           if (x >= b.x && x <= b.x + b.width && y >= b.y && y <= b.y + b.height) return node;
         }
       },
+      get connectionEditing() { return connectionEditing; },
       select(id) {
+        connectionEditing.select();
         if (store.get().selected !== id) store.set({ selected: id });
       },
       startPan: viewport.pointerdown,
@@ -97,13 +120,19 @@ export const canvasPrimitive = definePrimitive<PrimitiveOptions, CanvasState, Ca
         const el = element("node", id);
         if (previewElement && previewElement !== el) clearPreview();
         if (!el) return;
-        if (previewElement !== el) el.setAttribute("data-draw-preview", "");
+        if (previewElement !== el) {
+          el.setAttribute("data-draw-preview", "");
+          previewingConnectedNode = !!toolContext.getSnapshot().connections?.some(
+            (connection) => connection.source.nodeId === id || connection.target.nodeId === id,
+          );
+        }
         previewElement = el;
         if (offset) el.style.translate = `${offset.x}px ${offset.y}px`;
         if (size) {
           el.style.setProperty("--draw-preview-width", `${size.width}px`);
           el.style.setProperty("--draw-preview-height", `${size.height}px`);
         }
+        if (previewingConnectedNode) writeConnections({ nodePreview: { id, offset, size } });
       },
     };
 
@@ -115,6 +144,23 @@ export const canvasPrimitive = definePrimitive<PrimitiveOptions, CanvasState, Ca
       toolContext.select(node.id);
       return node;
     }
+    const connectionEditing = createConnectionEditing({
+      context: toolContext,
+      read: () => store.get().connectionView,
+      write: writeConnections,
+      options,
+      zoom: () => store.get().viewport.zoom,
+      selectedNode: () => toolContext.getSnapshot().nodes.find((node) => node.id === store.get().selected),
+      chooseNode(node) {
+        toolContext.select(node.id);
+        reveal(node);
+      },
+      nodeLabel,
+      announce(message) {
+        const root = element("root");
+        if (root) announce(message, { doc: root.ownerDocument });
+      },
+    });
 
     function reveal(node: DrawNode) {
       const { x, y, width, height } = node.bounds;
@@ -133,6 +179,7 @@ export const canvasPrimitive = definePrimitive<PrimitiveOptions, CanvasState, Ca
       if (event.ctrlKey || event.metaKey) {
         if (event.altKey || key.toLowerCase() !== "z") return;
         event.preventDefault();
+        connectionEditing.cancelKeyboard();
         if (event.shiftKey) commands.redo();
         else commands.undo();
         return;
@@ -147,8 +194,9 @@ export const canvasPrimitive = definePrimitive<PrimitiveOptions, CanvasState, Ca
         toolContext.select(null);
         return;
       }
-      const { nodes } = toolContext.getSnapshot();
+      const { nodes, connections } = toolContext.getSnapshot();
       const { selected } = store.get();
+      const selectedConnection = store.get().connectionView.selected;
       const index = nodes.findIndex(({ id }) => id === selected);
       if ((key === "[" || key === "]") && nodes.length) {
         event.preventDefault();
@@ -156,7 +204,12 @@ export const canvasPrimitive = definePrimitive<PrimitiveOptions, CanvasState, Ca
         const node = nodes[index < 0 ? (step > 0 ? 0 : nodes.length - 1) : (index + step + nodes.length) % nodes.length];
         toolContext.select(node.id);
         reveal(node);
-        announce(`${element("node", node.id)?.getAttribute("aria-label") ?? node.type} selected`, { doc: root.ownerDocument });
+        announce(`${nodeLabel(node)} selected`, { doc: root.ownerDocument });
+      } else if (selectedConnection !== undefined && connections?.some(({ id }) => id === selectedConnection) &&
+                 (key === "Backspace" || key === "Delete")) {
+        event.preventDefault();
+        connectionEditing.select();
+        commands.deleteConnection(selectedConnection);
       } else if (index >= 0 && (key === "Backspace" || key === "Delete")) {
         event.preventDefault();
         commands.deleteNode(nodes[index].id);
@@ -215,6 +268,7 @@ export const canvasPrimitive = definePrimitive<PrimitiveOptions, CanvasState, Ca
           onEnd(end, canceled) {
             stopDrag = undefined;
             clearPreview();
+            connectionEditing.clearDraft();
             if (!canceled) gesture.commit({ x: end.clientX, y: end.clientY });
           },
         });
@@ -239,6 +293,7 @@ export const canvasPrimitive = definePrimitive<PrimitiveOptions, CanvasState, Ca
     }),
     frame: slot({}),
     world: slot({ live: live((state, { api }) => ({ style: api.worldStyle(state) })) }),
+    connectionView: slot({ state: (state) => state.connectionView }),
     node: slot<{ value: string }>({
       role: "group",
       props: { value: "string" },

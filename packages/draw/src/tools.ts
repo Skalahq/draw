@@ -10,6 +10,12 @@ export type ToolContext = {
   select(id: string | null): void;
   startPan(event: PointerEvent): void;
   previewNode(id: string, preview: { offset?: Point; size?: Size }): void;
+  readonly connectionEditing?: {
+    pointerDown(event: PointerEvent): ToolGesture | void;
+    keyDown(event: KeyboardEvent): boolean;
+    handlePointerDown(point: Point): ToolGesture | undefined;
+    selectAt(point: Point): void;
+  };
 };
 
 export type ToolGesture = {
@@ -28,13 +34,21 @@ export const panTool: CanvasTool = {
   pointerDown: (context, event) => context.startPan(event),
 };
 
+export const connectTool: CanvasTool = {
+  id: "connect",
+  pointerDown: (context, event) => context.connectionEditing?.pointerDown(event),
+  keyDown: (context, event) => context.connectionEditing?.keyDown(event) ?? false,
+};
+
 export const selectTool: CanvasTool = {
   id: "select",
   pointerDown(context, event) {
     const start = context.toCanvas({ x: event.clientX, y: event.clientY });
+    const reconnect = context.connectionEditing?.handlePointerDown(start);
+    if (reconnect) return reconnect;
     const node = context.hitTest(start);
     context.select(node?.id ?? null);
-    if (!node) return;
+    if (!node) return context.connectionEditing?.selectAt(start);
     return boundsGesture(context, node, start, false);
   },
 };

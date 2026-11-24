@@ -5,15 +5,16 @@ import { memo, useCallback, useLayoutEffect, useRef, useSyncExternalStore, type 
 import { canvasPrimitive, type CanvasOptions } from "./canvas.js";
 import type { DrawController, DrawNode, Size } from "./core.js";
 import type { ForeignNodeRenderer, MountedNodeRenderer, NodeRenderProps } from "./node-renderer.js";
-import { selectTool } from "./tools.js";
+import { ConnectionLayers, type ConnectionRenderOptions } from "./react-connections.js";
+import { connectTool, selectTool } from "./tools.js";
 
 export type { ForeignNodeRenderer, MountedNodeRenderer, NodeRenderProps } from "./node-renderer.js";
 export type NodeRenderer = { render: ComponentType<NodeRenderProps> } | ForeignNodeRenderer;
 export type NodeRenderers = Readonly<Record<string, NodeRenderer | undefined>>;
 
-const Parts = createParts(canvasPrimitive, { root: "div", frame: "div", world: "div", node: "div" });
+const Parts = createParts(canvasPrimitive, { root: "div", frame: "div", world: "div", node: "div", connectionView: "div" });
 
-export type DrawCanvasProps = CanvasOptions & {
+export type DrawCanvasProps = CanvasOptions & ConnectionRenderOptions & {
   ref?: Ref<HTMLDivElement>;
   className?: string;
   "aria-label"?: string;
@@ -83,17 +84,27 @@ const NodeShell = memo(function NodeShell({ controller, node, renderer, usesRegi
   );
 });
 
-export function DrawCanvas({ controller, tool, renderNode, nodeRenderers, getNodeLabel, className, ...props }: DrawCanvasProps) {
+export function DrawCanvas({ controller, tool, renderNode, nodeRenderers, getNodeLabel, getPorts, getConnectionPath,
+  renderConnectionLine, renderArrowhead, className, ...props }: DrawCanvasProps) {
   const document = useSyncExternalStore(controller.subscribeCommitted, controller.getSnapshot, controller.getSnapshot);
   return (
     <Parts.Root
       {...props}
       documentController={controller}
       tool={tool}
+      getPorts={getPorts}
+      getConnectionPath={getConnectionPath}
       className={className ? `draw-canvas ${className}` : "draw-canvas"}
     >
       <Parts.Frame className="draw-frame">
         <Parts.World className="draw-world">
+          {(document.connections?.length || tool === connectTool) ? (
+            <Parts.ConnectionView className="draw-connection-view">
+              {(view) => <ConnectionLayers document={document} view={view} connecting={tool === connectTool}
+                editable={tool === selectTool || tool === connectTool} getPorts={getPorts} getConnectionPath={getConnectionPath}
+                renderConnectionLine={renderConnectionLine} renderArrowhead={renderArrowhead} />}
+            </Parts.ConnectionView>
+          ) : null}
           {document.nodes.map((node) => (
             <NodeShell
               key={node.id}

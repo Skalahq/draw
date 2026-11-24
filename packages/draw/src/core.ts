@@ -11,9 +11,19 @@ export type DrawNode = Readonly<{
   metadata?: Metadata;
 }>;
 
+export type ConnectionEndpoint = Readonly<{ nodeId: string; portId?: string }>;
+export type ConnectionEnd = "source" | "target";
+export type DrawConnection = Readonly<{
+  id: string;
+  source: ConnectionEndpoint;
+  target: ConnectionEndpoint;
+  metadata?: Metadata;
+}>;
+
 export type DrawDocument = Readonly<{
   version: 1;
   nodes: readonly DrawNode[];
+  connections?: readonly DrawConnection[];
 }>;
 
 export type DrawCommands = {
@@ -21,6 +31,9 @@ export type DrawCommands = {
   moveNode(id: string, position: Point): boolean;
   resizeNode(id: string, size: Size): boolean;
   deleteNode(id: string): boolean;
+  insertConnection(connection: DrawConnection): boolean;
+  reconnectConnection(id: string, end: ConnectionEnd, endpoint: ConnectionEndpoint): boolean;
+  deleteConnection(id: string): boolean;
   undo(): boolean;
   redo(): boolean;
 };
@@ -45,8 +58,28 @@ function ownNode(node: DrawNode): DrawNode {
   return Object.freeze({ ...node, bounds: Object.freeze({ ...node.bounds }), metadata });
 }
 
-function documentOf(nodes: DrawNode[]): DrawDocument {
-  return Object.freeze({ version: 1, nodes: Object.freeze(nodes) });
+function ownConnection(connection: DrawConnection): DrawConnection {
+  const metadata = connection.metadata === undefined ? undefined : structuredClone(connection.metadata);
+  if (metadata) freezeMetadata(metadata);
+  return Object.freeze({
+    ...connection, source: Object.freeze({ ...connection.source }), target: Object.freeze({ ...connection.target }), metadata,
+  });
+}
+
+function validEndpoint(endpoint: ConnectionEndpoint | undefined, hasNode: (id: string) => boolean): boolean {
+  return !!endpoint && typeof endpoint.nodeId === "string" && hasNode(endpoint.nodeId) &&
+    (endpoint.portId === undefined || (typeof endpoint.portId === "string" && endpoint.portId.length > 0));
+}
+
+function validConnection(connection: DrawConnection, hasNode: (id: string) => boolean): boolean {
+  return typeof connection?.id === "string" && connection.id.length > 0 &&
+    validEndpoint(connection.source, hasNode) && validEndpoint(connection.target, hasNode);
+}
+
+function documentOf(nodes: readonly DrawNode[], connections?: readonly DrawConnection[]): DrawDocument {
+  return Object.freeze(connections
+    ? { version: 1, nodes: Object.freeze(nodes), connections: Object.freeze(connections) }
+    : { version: 1, nodes: Object.freeze(nodes) });
 }
 
 function validPoint({ x, y }: Point): boolean {
@@ -66,7 +99,17 @@ export function createDrawController(initial?: DrawDocument): DrawController {
     ids.add(node.id);
     return ownNode(node);
   }) ?? [];
-  let current = documentOf(nodes);
+  const connectionIds = new Set<string>();
+  const hasInitialNode = (id: string) => ids.has(id);
+  const connections = initial?.connections?.map((connection) => {
+    if (!validConnection(connection, hasInitialNode) || connectionIds.has(connection.id)) {
+      throw new TypeError(`Invalid connection in Draw snapshot: ${connection?.id}`);
+    }
+    connectionIds.add(connection.id);
+    return ownConnection(connection);
+  });
+  let current = documentOf(nodes, connections);
+  const hasNode = (id: string) => current.nodes.some((node) => node.id === id);
   const past: DrawDocument[] = [];
   const future: DrawDocument[] = [];
   const listeners = new Set<CommittedListener>();
@@ -89,10 +132,10 @@ export function createDrawController(initial?: DrawDocument): DrawController {
     return true;
   }
 
-  function edit(nodes: DrawNode[]): true {
+  function edit(nodes: readonly DrawNode[], connections = current.connections): true {
     past.push(current);
     future.length = 0;
-    return publish(documentOf(nodes));
+    return publish(documentOf(nodes, connections));
   }
 
   function updateBounds(id: string, bounds: Partial<Bounds>): boolean {
@@ -130,7 +173,34 @@ export function createDrawController(initial?: DrawDocument): DrawController {
         if (index === -1) return false;
         const nodes = current.nodes.slice();
         nodes.splice(index, 1);
-        return edit(nodes);
+        const connections = current.connections;
+        const incident = (edge: DrawConnection) => edge.source.nodeId === id || edge.target.nodeId === id;
+        return edit(nodes, connections?.some(incident) ? connections.filter((edge) => !incident(edge)) : connections);
+      },
+      insertConnection(connection) {
+        const connections = current.connections ?? [];
+        if (!validConnection(connection, hasNode) || connections.some(({ id }) => id === connection.id)) return false;
+        return edit(current.nodes, [...connections, ownConnection(connection)]);
+      },
+      reconnectConnection(id, end, endpoint) {
+        const connections = current.connections;
+        if (!connections || !validEndpoint(endpoint, hasNode)) return false;
+        const index = connections.findIndex((connection) => connection.id === id);
+        if (index === -1) return false;
+        const connection = connections[index];
+        const previous = connection[end];
+        if (previous.nodeId === endpoint.nodeId && previous.portId === endpoint.portId) return false;
+        const next = connections.slice();
+        next[index] = Object.freeze({ ...connection, [end]: Object.freeze({ ...endpoint }) });
+        return edit(current.nodes, next);
+      },
+      deleteConnection(id) {
+        const connections = current.connections;
+        const index = connections?.findIndex((connection) => connection.id === id) ?? -1;
+        if (!connections || index === -1) return false;
+        const next = connections.slice();
+        next.splice(index, 1);
+        return edit(current.nodes, next);
       },
       undo() {
         const previous = past.pop();
@@ -148,5 +218,10 @@ export function createDrawController(initial?: DrawDocument): DrawController {
   };
 }
 
-export { insertNodeTool, panTool, selectTool, type CanvasTool, type ToolContext, type ToolGesture } from "./tools.js";
+export { connectTool, insertNodeTool, panTool, selectTool, type CanvasTool, type ToolContext, type ToolGesture } from "./tools.js";
 export { decodeDrawDocument, encodeDrawDocument } from "./json.js";
+export {
+  getConnectionGeometry, hitTestConnection, connectionArrowheadTransform, defaultArrowheadPath,
+  type ArrowheadGeometry, type ConnectionAnchors, type ConnectionGeometry, type ConnectionGeometryOptions,
+  type ConnectionPathSegment, type DrawPort,
+} from "./connections.js";

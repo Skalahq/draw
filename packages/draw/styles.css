@@ -65,3 +65,55 @@
 .draw-canvas .draw-node[data-selected] > .draw-resize {
   display: block;
 }
+
+.draw-canvas .draw-connection-view {
+  position: absolute;
+  inset: 0 auto auto 0;
+  pointer-events: none;
+}
+
+.draw-canvas .draw-connection-layer,
+.draw-canvas .draw-connection-overlay {
+  position: absolute;
+  inset: 0 auto auto 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.draw-canvas .draw-connection-layer {
+  z-index: 0;
+}
+
+.draw-canvas .draw-connection-overlay {
+  z-index: 2;
+}
+
+.draw-canvas .draw-connection-line {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+}
+
+.draw-canvas .draw-arrowhead {
+  fill: currentColor;
+  stroke: none;
+}
+
+.draw-canvas .draw-connection-draft {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-dasharray: 5 4;
+}
+
+.draw-canvas .draw-connection-handle {
+  fill: #ffffff;
+  stroke: currentColor;
+  stroke-width: 2;
+}
+
+.draw-canvas .draw-port {
+  fill: #ffffff;
+  stroke: currentColor;
+  stroke-width: 1.5;
+}
