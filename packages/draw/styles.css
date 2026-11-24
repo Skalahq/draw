@@ -20,6 +20,35 @@
   box-sizing: border-box;
 }
 
+.draw-canvas .draw-node-content {
+  isolation: isolate;
+  width: 100%;
+  height: 100%;
+}
+
+.draw-canvas .draw-stroke-node {
+  pointer-events: none;
+}
+
+.draw-canvas .draw-stroke {
+  display: block;
+  overflow: visible;
+}
+
+.draw-canvas .draw-stroke > path {
+  pointer-events: stroke;
+}
+
+.draw-canvas .draw-stroke-preview {
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: 1px;
+  height: 1px;
+  overflow: visible;
+  pointer-events: none;
+  z-index: 3;
+}
+
 .draw-canvas .draw-node[data-draw-preview] {
   z-index: 2;
 }

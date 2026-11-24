@@ -12,7 +12,7 @@ const stroke = {
   id: "stroke-01",
   type: "draw:stroke",
   bounds: { x: 20, y: 40, width: 12, height: 8 },
-  metadata: { points: [{ x: 0, y: 0 }, { x: 12, y: 8 }] },
+  metadata: { points: [{ x: 2, y: 2 }, { x: 10, y: 6 }], ink: "host" },
 } satisfies DrawNode;
 
 test("editable JSON preserves stacking and opaque data and opens with fresh history", () => {
@@ -32,6 +32,18 @@ test("editable JSON preserves stacking and opaque data and opens with fresh hist
   expect(reopened.commands.moveNode(unregistered.id, { x: 10, y: 20 })).toBe(true);
   expect(reopened.commands.undo()).toBe(true);
   expect(encodeDrawDocument(reopened.getSnapshot())).toBe(json);
+});
+
+test("editable JSON preserves connections and rejects a malformed stroke", () => {
+  const edge = { id: "edge", source: { nodeId: "host-01", portId: "out" }, target: { nodeId: "stroke-01" }, metadata: { kind: "review" } };
+  const source = createDrawController({ version: 1, nodes: [unregistered, stroke], connections: [edge] });
+  const json = encodeDrawDocument(source.getSnapshot());
+  expect(JSON.parse(json)).toEqual({ version: 1, nodes: [unregistered, stroke], connections: [edge] });
+  expect(decodeDrawDocument(json).connections).toEqual([edge]);
+  expect(() => decodeDrawDocument(JSON.stringify({
+    version: 1,
+    nodes: [{ ...stroke, metadata: { points: [{ x: 0, y: 0 }] } }],
+  }))).toThrow(/freehand stroke/);
 });
 
 test("the versioned format owns only document fields and does not interpret metadata keys", () => {

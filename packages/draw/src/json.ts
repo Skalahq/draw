@@ -1,4 +1,5 @@
-import type { DrawDocument, DrawNode, Metadata } from "./core.js";
+import type { ConnectionEndpoint, DrawConnection, DrawDocument, DrawNode, Metadata } from "./core.js";
+import { isValidStrokeNode, strokeNodeType } from "./stroke.js";
 
 function readJsonObject(value: unknown): Record<string, unknown> | undefined {
   if (value === null || typeof value !== "object") return undefined;
@@ -54,8 +55,38 @@ function readNode(input: unknown, index: number, ids: Set<string>): DrawNode {
   if (metadata !== undefined && !isMetadata(metadata)) {
     throw new TypeError(`Invalid Draw nodes[${index}].metadata: expected a JSON object with finite numbers`);
   }
+  const node = { id, type, bounds: { x, y, width, height }, metadata };
+  if (type === strokeNodeType && !isValidStrokeNode(node)) {
+    throw new TypeError(`Invalid Draw nodes[${index}]: expected a freehand stroke inside its bounds`);
+  }
   ids.add(id);
-  return { id, type, bounds: { x, y, width, height }, metadata };
+  return node;
+}
+
+function readEndpoint(input: unknown, index: number, end: string, nodeIds: Set<string>): ConnectionEndpoint {
+  const value = readJsonObject(input);
+  if (!value || !isKey(value.nodeId) || !nodeIds.has(value.nodeId) ||
+      (value.portId !== undefined && !isKey(value.portId))) {
+    throw new TypeError(`Invalid Draw connections[${index}].${end}: expected an existing node and an optional port id`);
+  }
+  return value.portId === undefined ? { nodeId: value.nodeId } : { nodeId: value.nodeId, portId: value.portId };
+}
+
+function readConnection(input: unknown, index: number, ids: Set<string>, nodeIds: Set<string>): DrawConnection {
+  const value = readJsonObject(input);
+  if (!value || !isKey(value.id) || ids.has(value.id)) {
+    throw new TypeError(`Invalid Draw connections[${index}]: expected a unique non-empty id`);
+  }
+  if (value.metadata !== undefined && !isMetadata(value.metadata)) {
+    throw new TypeError(`Invalid Draw connections[${index}].metadata: expected a JSON object with finite numbers`);
+  }
+  ids.add(value.id);
+  return {
+    id: value.id,
+    source: readEndpoint(value.source, index, "source", nodeIds),
+    target: readEndpoint(value.target, index, "target", nodeIds),
+    metadata: value.metadata,
+  };
 }
 
 function readVersion1(value: Record<string, unknown>): DrawDocument {
@@ -63,7 +94,12 @@ function readVersion1(value: Record<string, unknown>): DrawDocument {
   const nodes: DrawNode[] = [];
   const nodeIds = new Set<string>();
   for (const node of value.nodes) nodes.push(readNode(node, nodes.length, nodeIds));
-  return { version: 1, nodes };
+  if (value.connections === undefined) return { version: 1, nodes };
+  if (!Array.isArray(value.connections)) throw new TypeError("Invalid Draw document: expected a connections array");
+  const connections: DrawConnection[] = [];
+  const connectionIds = new Set<string>();
+  for (const connection of value.connections) connections.push(readConnection(connection, connections.length, connectionIds, nodeIds));
+  return { version: 1, nodes, connections };
 }
 
 function readDocument(input: unknown): DrawDocument {

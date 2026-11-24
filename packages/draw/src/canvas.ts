@@ -3,6 +3,7 @@ import type { DrawController, DrawNode, Point } from "./core.js";
 import { createConnectionEditing, type ConnectionViewState } from "./connection-editing.js";
 import type { ConnectionGeometryOptions } from "./connections.js";
 import { boundsGesture, panTool, selectTool, type CanvasTool, type ToolContext } from "./tools.js";
+import { strokeContainsPoint, strokeNodeType, strokeWidth } from "./stroke.js";
 
 export type CanvasOptions = ConnectionGeometryOptions & {
   controller: DrawController;
@@ -52,9 +53,12 @@ export const canvasPrimitive = definePrimitive<PrimitiveOptions, CanvasState, Ca
     let stopDrag: (() => void) | undefined;
     let previewElement: HTMLElement | undefined;
     let previewingConnectedNode = false;
+    let strokePreview: SVGPathElement | undefined;
     let previous = options();
 
     function clearPreview() {
+      strokePreview?.ownerSVGElement?.remove();
+      strokePreview = undefined;
       if (!previewElement) return;
       previewElement.style.removeProperty("translate");
       previewElement.style.removeProperty("--draw-preview-width");
@@ -107,7 +111,8 @@ export const canvasPrimitive = definePrimitive<PrimitiveOptions, CanvasState, Ca
         for (let i = nodes.length - 1; i >= 0; i--) {
           const node = nodes[i];
           const b = node.bounds;
-          if (x >= b.x && x <= b.x + b.width && y >= b.y && y <= b.y + b.height) return node;
+          if (x >= b.x && x <= b.x + b.width && y >= b.y && y <= b.y + b.height &&
+              (node.type !== strokeNodeType || strokeContainsPoint(node, x, y))) return node;
         }
       },
       get connectionEditing() { return connectionEditing; },
@@ -133,6 +138,25 @@ export const canvasPrimitive = definePrimitive<PrimitiveOptions, CanvasState, Ca
           el.style.setProperty("--draw-preview-height", `${size.height}px`);
         }
         if (previewingConnectedNode) writeConnections({ nodePreview: { id, offset, size } });
+      },
+      previewStroke(d) {
+        if (!strokePreview) {
+          const world = element("world");
+          if (!world) return;
+          const ns = "http://www.w3.org/2000/svg";
+          const svg = world.ownerDocument.createElementNS(ns, "svg");
+          svg.setAttribute("aria-hidden", "true");
+          svg.setAttribute("class", "draw-stroke-preview");
+          strokePreview = world.ownerDocument.createElementNS(ns, "path");
+          strokePreview.setAttribute("fill", "none");
+          strokePreview.setAttribute("stroke", "currentColor");
+          strokePreview.setAttribute("stroke-width", String(strokeWidth));
+          strokePreview.setAttribute("stroke-linecap", "round");
+          strokePreview.setAttribute("stroke-linejoin", "round");
+          svg.append(strokePreview);
+          world.append(svg);
+        }
+        strokePreview.setAttribute("d", d);
       },
     };
 
@@ -264,7 +288,7 @@ export const canvasPrimitive = definePrimitive<PrimitiveOptions, CanvasState, Ca
         if (!gesture) return;
         stopDrag = bindDrag(root, event, {
           cancelOnEscape: true,
-          onMove: ({ x, y }) => gesture.preview?.({ x, y }),
+          onMove: ({ x, y, event }) => gesture.preview?.({ x, y }, event),
           onEnd(end, canceled) {
             stopDrag = undefined;
             clearPreview();

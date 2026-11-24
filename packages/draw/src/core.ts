@@ -1,3 +1,5 @@
+import { isValidStrokeNode, strokeNodeType } from "./stroke.js";
+
 export type Point = Readonly<{ x: number; y: number }>;
 export type Size = Readonly<{ width: number; height: number }>;
 export type Bounds = Point & Size;
@@ -93,7 +95,8 @@ function validSize({ width, height }: Size): boolean {
 export function createDrawController(initial?: DrawDocument): DrawController {
   const ids = new Set<string>();
   const nodes = initial?.nodes.map((node) => {
-    if (!node.id || !node.type || !validPoint(node.bounds) || !validSize(node.bounds) || ids.has(node.id)) {
+    if (!node.id || !node.type || !validPoint(node.bounds) || !validSize(node.bounds) || ids.has(node.id) ||
+        (node.type === strokeNodeType && !isValidStrokeNode(node))) {
       throw new TypeError(`Invalid node in Draw snapshot: ${node.id}`);
     }
     ids.add(node.id);
@@ -145,6 +148,7 @@ export function createDrawController(initial?: DrawDocument): DrawController {
     const next = { ...node.bounds, ...bounds };
     if (next.x === node.bounds.x && next.y === node.bounds.y &&
         next.width === node.bounds.width && next.height === node.bounds.height) return false;
+    if (node.type === strokeNodeType && (next.width !== node.bounds.width || next.height !== node.bounds.height)) return false;
     const nodes = current.nodes.slice();
     nodes[index] = Object.freeze({ ...node, bounds: Object.freeze(next) });
     return edit(nodes);
@@ -159,6 +163,7 @@ export function createDrawController(initial?: DrawDocument): DrawController {
     commands: {
       insertNode(node) {
         if (!node.id || !node.type || !validPoint(node.bounds) || !validSize(node.bounds) ||
+            (node.type === strokeNodeType && !isValidStrokeNode(node)) ||
             current.nodes.some(({ id }) => id === node.id)) return false;
         return edit([...current.nodes, ownNode(node)]);
       },
@@ -218,8 +223,9 @@ export function createDrawController(initial?: DrawDocument): DrawController {
   };
 }
 
-export { connectTool, insertNodeTool, panTool, selectTool, type CanvasTool, type ToolContext, type ToolGesture } from "./tools.js";
+export { connectTool, freehandTool, insertNodeTool, panTool, selectTool, type CanvasTool, type ToolContext, type ToolGesture } from "./tools.js";
 export { decodeDrawDocument, encodeDrawDocument } from "./json.js";
+export { getStrokeGeometry, isValidStrokeNode, strokeNodeType, strokeWidth } from "./stroke.js";
 export {
   getConnectionGeometry, hitTestConnection, connectionArrowheadTransform, defaultArrowheadPath,
   type ArrowheadGeometry, type ConnectionAnchors, type ConnectionGeometry, type ConnectionGeometryOptions,

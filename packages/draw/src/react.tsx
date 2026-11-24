@@ -6,6 +6,7 @@ import { canvasPrimitive, type CanvasOptions } from "./canvas.js";
 import type { DrawController, DrawNode, Size } from "./core.js";
 import type { ForeignNodeRenderer, MountedNodeRenderer, NodeRenderProps } from "./node-renderer.js";
 import { ConnectionLayers, type ConnectionRenderOptions } from "./react-connections.js";
+import { getStrokeGeometry, strokeWidth } from "./stroke.js";
 import { connectTool, selectTool } from "./tools.js";
 
 export type { ForeignNodeRenderer, MountedNodeRenderer, NodeRenderProps } from "./node-renderer.js";
@@ -54,18 +55,23 @@ const NodeShell = memo(function NodeShell({ controller, node, renderer, usesRegi
   selectable: boolean;
 }) {
   const { x, y, width, height } = node.bounds;
-  const label = getNodeLabel?.(node) ?? node.type;
+  const stroke = getStrokeGeometry(node);
+  const label = getNodeLabel?.(node) ?? (stroke ? "Freehand stroke" : node.type);
   const id = node.id;
   const resize = useCallback((size: Size) => controller.commands.resizeNode(id, size), [controller, id]);
   const ReactContent = renderer && "render" in renderer ? renderer.render : undefined;
   return (
     <Parts.Node
       value={id}
-      className="draw-node"
+      className={stroke ? "draw-node draw-stroke-node" : "draw-node"}
       aria-label={label}
       style={{ left: x, top: y, width: `var(--draw-preview-width, ${width}px)`, height: `var(--draw-preview-height, ${height}px)` }}
     >
-      {ReactContent ? (
+      {stroke ? (
+        <svg className="draw-stroke" aria-hidden="true" width={width} height={height}>
+          <path d={stroke.d} fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      ) : ReactContent ? (
         <div key={node.type} className="draw-node-content" data-draw-interactive="">
           <ReactContent node={node} resize={resize} />
         </div>
@@ -76,10 +82,10 @@ const NodeShell = memo(function NodeShell({ controller, node, renderer, usesRegi
           ? <span className="draw-node-placeholder">Unknown node type: {node.type}</span>
           : <span>{node.type}</span>)
       )}
-      {selectable && usesRegistry ? (
+      {selectable && usesRegistry && !stroke ? (
         <button type="button" className="draw-move" aria-label={`Move ${label}`} data-draw-move={id} />
       ) : null}
-      {selectable ? <span aria-hidden="true" className="draw-resize" data-draw-resize={id} /> : null}
+      {selectable && !stroke ? <span aria-hidden="true" className="draw-resize" data-draw-resize={id} /> : null}
     </Parts.Node>
   );
 });

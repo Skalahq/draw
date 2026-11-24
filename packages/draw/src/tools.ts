@@ -1,4 +1,5 @@
 import type { DrawCommands, DrawDocument, DrawNode, Point, Size } from "./core.js";
+import { createStrokeNode } from "./stroke.js";
 
 export type ToolContext = {
   readonly commands: DrawCommands;
@@ -16,10 +17,11 @@ export type ToolContext = {
     handlePointerDown(point: Point): ToolGesture | undefined;
     selectAt(point: Point): void;
   };
+  previewStroke?(path: string): void;
 };
 
 export type ToolGesture = {
-  preview?(client: Point): void;
+  preview?(client: Point, event?: PointerEvent): void;
   commit(client: Point): void;
 };
 
@@ -50,6 +52,45 @@ export const selectTool: CanvasTool = {
     context.select(node?.id ?? null);
     if (!node) return context.connectionEditing?.selectAt(start);
     return boundsGesture(context, node, start, false);
+  },
+};
+
+let strokeSequence = 0;
+
+export const freehandTool: CanvasTool = {
+  id: "freehand",
+  pointerDown(context, event) {
+    const first = context.toCanvas({ x: event.clientX, y: event.clientY });
+    const points = [first];
+    let path = `M${first.x} ${first.y}`;
+    context.previewStroke?.(`${path}L${first.x} ${first.y}`);
+
+    function sample(client: Point) {
+      const point = context.toCanvas(client);
+      const last = points[points.length - 1];
+      if (point.x === last.x && point.y === last.y) return;
+      points.push(point);
+      path += `L${point.x} ${point.y}`;
+    }
+
+    return {
+      preview(client, move) {
+        const count = points.length;
+        for (const event of move?.getCoalescedEvents?.() ?? []) {
+          sample({ x: event.clientX, y: event.clientY });
+        }
+        sample(client);
+        if (points.length !== count) context.previewStroke?.(path);
+      },
+      commit(client) {
+        sample(client);
+        const { nodes } = context.getSnapshot();
+        let id: string;
+        do id = `stroke-${++strokeSequence}`;
+        while (nodes.some((node) => node.id === id));
+        if (context.commands.insertNode(createStrokeNode(id, points))) context.select(id);
+      },
+    };
   },
 };
 
