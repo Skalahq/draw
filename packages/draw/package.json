@@ -1,0 +1,39 @@
+{
+  "name": "@skalahq/draw",
+  "version": "0.0.0",
+  "type": "module",
+  "files": [
+    "dist",
+    "styles.css"
+  ],
+  "exports": {
+    "./core": {
+      "types": "./dist/core.d.ts",
+      "default": "./dist/core.js"
+    },
+    "./react": {
+      "types": "./dist/react.d.ts",
+      "default": "./dist/react.js"
+    },
+    "./styles.css": "./styles.css"
+  },
+  "scripts": {
+    "build": "bun run --bun tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@ui-sdk/core": "0.1.0-beta.17",
+    "@ui-sdk/react": "0.1.0-beta.17"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    }
+  }
+}

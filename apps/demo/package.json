@@ -1,0 +1,19 @@
+{
+  "name": "@draw/demo",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun run --bun next dev",
+    "build": "bun run --bun next build",
+    "start": "bun run --bun next start",
+    "typecheck": "bun run --bun next typegen && bun run --bun tsc --noEmit"
+  },
+  "dependencies": {
+    "@skalahq/draw": "workspace:*",
+    "@ui-sdk/core": "0.1.0-beta.17",
+    "@ui-sdk/react": "0.1.0-beta.17",
+    "next": "16.4.6",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  }
+}

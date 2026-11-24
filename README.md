@@ -1,32 +1,29 @@
-# React + TypeScript + Vite
+# Draw
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Draw is an embeddable canvas. The host owns its controls and node content; Draw owns document edits and history.
 
-Currently, two official plugins are available:
+## Run the demo
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```sh
+bun install --frozen-lockfile
+bun run --bun playwright install chromium
+bun run check
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+On Linux, use `bun run --bun playwright install --with-deps chromium` if Chromium's system dependencies are missing. The smoke tests start and stop their own production server; no credentials or running dev server are needed.
+
+For local editing, run `bun run dev` and open the URL Next.js prints. If you have [Portless](https://github.com/vercel-labs/portless), run `portless run --name draw bun run dev` for a named local URL.
+
+## Embed in React 19
+
+Import `createDrawController` and the tools from `@skalahq/draw/core`, `DrawCanvas` from `@skalahq/draw/react`, and `@skalahq/draw/styles.css` once. The canvas needs a height from its host. React and React DOM are supplied by the host, not bundled.
+
+Create one controller per open document and pass it to `DrawCanvas`. Host controls and tools both call `controller.commands`; read committed data with `getSnapshot()` or listen with `subscribeCommitted(listener)`, which returns an unsubscribe function. Snapshots are immutable. Undo and redo publish snapshots, but selection, the viewport, and drag previews never do.
+
+Pass the active `tool` explicitly: `selectTool`, `panTool`, `insertNodeTool(createNode)`, or a host-defined `CanvasTool`. With no active tool, pointer presses don't edit the document. The demo's **Stamp marker** tool converts its pointer release from client pixels to canvas units with `context.toCanvas`, then inserts through `context.commands.insertNode`.
+
+- Select moves a node by dragging its shell. Drag the selected node's bottom-right handle to resize; Escape cancels either gesture.
+- Use Pan to drag the viewport, or scroll to pan and Ctrl/⌘-scroll to zoom. With canvas focus, `+`, `-`, and `0` control zoom.
+- With an insertion tool active, Enter inserts at the viewport center. `[` and `]` cycle the selection, arrows move it (Shift for larger steps), and Delete removes it. Ctrl/⌘+Z undoes; add Shift to redo.
+
+The structural CSS only positions the canvas, nodes, and handles. Style `.draw-node[data-selected]` and `.draw-resize` in the host for a visible selection and resize affordance. `renderNode` supplies node content, and `getNodeLabel` gives each node an accessible name.

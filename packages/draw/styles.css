@@ -1,0 +1,39 @@
+.draw-canvas {
+  position: relative;
+  overflow: clip;
+  touch-action: none;
+}
+
+.draw-canvas .draw-frame {
+  position: absolute;
+  inset: 0;
+}
+
+.draw-canvas .draw-world {
+  position: absolute;
+  inset: 0 auto auto 0;
+  transform-origin: 0 0;
+}
+
+.draw-canvas .draw-node {
+  position: absolute;
+  box-sizing: border-box;
+}
+
+.draw-canvas .draw-node[data-draw-preview] {
+  z-index: 2;
+}
+
+.draw-canvas .draw-resize {
+  display: none;
+  position: absolute;
+  inset: auto 0 0 auto;
+  width: 16px;
+  height: 16px;
+  cursor: nwse-resize;
+  z-index: 1;
+}
+
+.draw-canvas .draw-node[data-selected] > .draw-resize {
+  display: block;
+}
