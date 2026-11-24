@@ -1,6 +1,6 @@
 # Draw v1 architecture
 
-Proposed for sign-off. Draw is a UI SDK canvas primitive packaged for the npm ecosystem. The Next.js demo is a consumer, not part of the library. Two editor configurations must work against the same package: a workflow canvas with live component nodes and connections, and a sketch canvas with freehand drawing and groups.
+Draw is a UI SDK canvas primitive packaged for the npm ecosystem. The Next.js demo is a consumer, not part of the library. Two editor configurations must work against the same package: a workflow canvas with live component nodes and connections, and a sketch canvas with freehand drawing and groups.
 
 ## Repository and package
 
