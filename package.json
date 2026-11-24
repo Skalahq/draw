@@ -1,27 +1,23 @@
 {
-  "name": "draw",
+  "name": "draw-workspace",
   "private": true,
   "version": "0.0.0",
-  "type": "module",
+  "packageManager": "bun@1.4.5",
+  "workspaces": ["packages/*", "apps/*"],
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
-    "lint": "oxlint",
-    "preview": "vite preview"
-  },
-  "dependencies": {
-    "@ui-sdk/core": "^0.1.0-beta.17",
-    "@ui-sdk/react": "^0.1.0-beta.17",
-    "react": "^19.3.1",
-    "react-dom": "^19.3.1"
+    "dev": "bun run --filter @skalahq/draw build && bun run --filter @draw/demo dev",
+    "typecheck": "bun run --filter @skalahq/draw build && bun run --filter @draw/demo typecheck && bun run --bun tsc --noEmit",
+    "build": "bun run --filter @skalahq/draw build && bun run --filter @draw/demo build",
+    "test": "bun test ./tests",
+    "smoke": "bun run --bun playwright test",
+    "check": "bun run typecheck && bun run test && bun run build && bun run smoke"
   },
   "devDependencies": {
+    "@playwright/test": "1.65.1",
+    "@types/bun": "1.4.5",
     "@types/node": "^24.19.2",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
-    "@vitejs/plugin-react": "^6.1.2",
-    "oxlint": "^1.90.0",
-    "typescript": "~7.0.2",
-    "vite": "^8.3.6"
+    "typescript": "~5.9.3"
   }
 }
