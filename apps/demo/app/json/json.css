@@ -1,0 +1,30 @@
+.json-document-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+}
+
+.json-document-actions p {
+  margin: 0;
+  color: var(--muted);
+  font-size: .8125rem;
+  overflow-wrap: anywhere;
+}
+
+.json-document-actions [role="alert"] { color: #842f21; }
+.json-document-actions [role="status"]:empty { display: none; }
+.json-editor .draw-node > span:first-child:not(.draw-resize) {
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  overflow: clip;
+  overflow-wrap: anywhere;
+  border: 1px dashed var(--line);
+  border-radius: 5px;
+  background: var(--paper);
+  color: var(--muted);
+  font: .8125rem ui-monospace, monospace;
+}

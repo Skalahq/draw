@@ -27,3 +27,18 @@ Pass the active `tool` explicitly: `selectTool`, `panTool`, `insertNodeTool(crea
 - With an insertion tool active, Enter inserts at the viewport center. `[` and `]` cycle the selection, arrows move it (Shift for larger steps), and Delete removes it. Ctrl/⌘+Z undoes; add Shift to redo.
 
 The structural CSS only positions the canvas, nodes, and handles. Style `.draw-node[data-selected]` and `.draw-resize` in the host for a visible selection and resize affordance. `renderNode` supplies node content, and `getNodeLabel` gives each node an accessible name.
+
+## Editable JSON
+
+Open `/json` in the demo to download the committed drawing with **Export JSON**, or open a `.json` file with **Import JSON**. The file preserves document order and host metadata, including metadata on node types the current host cannot render.
+
+```ts
+import { createDrawController, decodeDrawDocument, encodeDrawDocument } from "@skalahq/draw/core";
+
+const json = encodeDrawDocument(controller.getSnapshot());
+const reopened = createDrawController(decodeDrawDocument(json));
+```
+
+The codec supports version 1. Decoding throws on invalid JSON, invalid document contents, or an unsupported version, so construct the replacement controller before switching away from the current one. The file contains no camera, selection, active tool, gestures, or history. Mount a fresh canvas (in React, use a new `key`) with the new controller to reset its session state.
+
+JSON is a portable file format, not a persistence adapter. For a persisted editor, validate first, flush or resolve outstanding saves for the open document, and then bind the replacement controller to storage. Explicitly save its initial imported snapshot: opening a controller is not an edit and doesn't emit a committed change.

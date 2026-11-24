@@ -149,3 +149,4 @@ export function createDrawController(initial?: DrawDocument): DrawController {
 }
 
 export { insertNodeTool, panTool, selectTool, type CanvasTool, type ToolContext, type ToolGesture } from "./tools.js";
+export { decodeDrawDocument, encodeDrawDocument } from "./json.js";
