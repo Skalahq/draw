@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "bun run --bun next dev",
+    "dev": "portless run --name draw bun run --bun next dev",
     "build": "bun run --bun next build",
     "start": "bun run --bun next start",
     "typecheck": "bun run --bun next typegen && bun run --bun tsc --noEmit"

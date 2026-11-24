@@ -12,7 +12,7 @@ bun run check
 
 On Linux, use `bun run --bun playwright install --with-deps chromium` if Chromium's system dependencies are missing. The smoke tests start and stop their own production server; no credentials or running dev server are needed.
 
-For local editing, run `bun run dev` and open the URL Next.js prints. If you have [Portless](https://github.com/vercel-labs/portless), run `portless run --name draw bun run dev` for a named local URL.
+For local editing, install [Portless](https://github.com/vercel-labs/portless) globally, then run `bun run dev` and open the named URL it prints. Run `PORTLESS=0 bun run dev` to bypass the proxy. Portless is not needed for `bun run check`.
 
 ## Embed in React 19
 
