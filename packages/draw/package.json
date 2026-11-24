@@ -15,6 +15,10 @@
       "types": "./dist/react.d.ts",
       "default": "./dist/react.js"
     },
+    "./dom": {
+      "types": "./dist/dom.d.ts",
+      "default": "./dist/dom.js"
+    },
     "./styles.css": "./styles.css"
   },
   "scripts": {
@@ -22,13 +26,17 @@
   },
   "dependencies": {
     "@ui-sdk/core": "0.1.0-beta.17",
-    "@ui-sdk/react": "0.1.0-beta.17"
+    "@ui-sdk/web": "0.1.0-beta.17"
   },
   "peerDependencies": {
+    "@ui-sdk/react": "0.1.0-beta.17",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
   "peerDependenciesMeta": {
+    "@ui-sdk/react": {
+      "optional": true
+    },
     "react": {
       "optional": true
     },

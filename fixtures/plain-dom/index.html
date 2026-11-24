@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Draw plain JavaScript consumer</title>
+    <link rel="stylesheet" href="./main.css" />
+    <style>
+      #drawing { height: 360px; margin-top: 1rem; }
+      .draw-canvas { background: #eee; }
+      .draw-node { padding: 0.5rem; background: #fff; border: 1px solid #333; }
+      .draw-node[data-selected] { outline: 2px solid #005fcc; }
+    </style>
+  </head>
+  <body>
+    <button id="add">Add to first document</button>
+    <button id="insert">Insert</button>
+    <button id="select">Select</button>
+    <button id="pan">Pan</button>
+    <button id="custom">Use custom renderer</button>
+    <button id="second">Use second document</button>
+    <button id="dispose">Dispose</button>
+    <button id="remount">Remount</button>
+    <output id="edits" aria-label="Committed edits">0</output>
+    <div id="drawing"><p>Host content stays mounted</p></div>
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>
