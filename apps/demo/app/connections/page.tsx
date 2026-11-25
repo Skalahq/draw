@@ -82,7 +82,7 @@ export default function ConnectionsPage() {
         getNodeLabel={nodeLabel}
         getPorts={getPorts}
         getConnectionPath={(_connection, { source, target }) => [{ to: target, control: { x: target.x, y: source.y - 80 } }]}
-        renderConnectionLine={(_connection, geometry) => <path data-testid="workflow-line" d={geometry.path} />}
+        renderConnectionLine={(_connection, geometry) => <path className="draw-connection-line" data-testid="workflow-line" d={geometry.path} />}
         renderArrowhead={(_connection, geometry) => (
           <path data-testid="workflow-head" d={defaultArrowheadPath} transform={connectionArrowheadTransform(geometry.arrowhead)} />
         )}

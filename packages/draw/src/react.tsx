@@ -114,7 +114,7 @@ function GroupFrame({ document, id }: { document: DrawDocument; id: string }) {
       aria-label={`Group ${id}`}
       style={{ left: bounds.x - pad, top: bounds.y - pad - 28, width: bounds.width + pad * 2, height: bounds.height + pad * 2 + 28 }}
     >
-      <button type="button" className="draw-group-move" data-draw-group-move={id} aria-label={`Move group ${id}`} style={{ left: 2 + depth * 72 }} onPointerDown={(event) => event.preventDefault()}>Group</button>
+      <button type="button" className="draw-group-move" data-draw-group-move={id} aria-label={`Move group ${id}`} style={{ left: 2 + depth * 72 }}>Group</button>
     </Parts.Group>
   );
 }

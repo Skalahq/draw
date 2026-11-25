@@ -22,9 +22,11 @@ const ConnectionShape = memo(function ConnectionShape({ connection, source, targ
   if (!geometry) return null;
   return (
     <g className="draw-connection" data-selected={selected ? "" : undefined}>
-      {renderConnectionLine
-        ? renderConnectionLine(connection, geometry)
-        : <path className="draw-connection-line" d={geometry.path} />}
+      <g className="draw-connection-stroke">
+        {renderConnectionLine
+          ? renderConnectionLine(connection, geometry)
+          : <path className="draw-connection-line" d={geometry.path} />}
+      </g>
       {renderArrowhead
         ? renderArrowhead(connection, geometry)
         : <path className="draw-arrowhead" d={defaultArrowheadPath} transform={connectionArrowheadTransform(geometry.arrowhead)} />}

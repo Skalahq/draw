@@ -123,6 +123,12 @@
   stroke-width: 2;
 }
 
+.draw-canvas .draw-connection-stroke {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+}
+
 .draw-canvas .draw-arrowhead {
   fill: currentColor;
   stroke: none;
@@ -177,6 +183,7 @@
   cursor: grab;
 }
 
-.draw-canvas .draw-connection[data-selected] .draw-connection-line {
+.draw-canvas .draw-connection[data-selected] .draw-connection-line,
+.draw-canvas .draw-connection[data-selected] .draw-connection-stroke {
   stroke-width: 3;
 }

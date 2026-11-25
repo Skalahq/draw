@@ -29,6 +29,8 @@ test("draw and reconnect on the custom curve; Escape, pointer cancellation, and 
 
   await drag(200, 188, 400, 188);
   await expect(path(page)).toHaveAttribute("d", "M 200 188 Q 400 108 400 188");
+  await expect(path(page)).toHaveCSS("fill", "none");
+  await expect(path(page)).toHaveCSS("stroke-width", "3px");
   await expect(head(page)).toHaveAttribute("transform", "translate(400 188) rotate(90)");
   await expect(committed(page)).toHaveText("1 edit");
 

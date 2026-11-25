@@ -96,5 +96,13 @@ test("mixed selection groups a component, a stroke, and a connection", async ({ 
   await page.getByRole("button", { name: "Undo", exact: true }).click();
   await expect(groups(page)).toHaveText("group-1:card+ink");
   await expect(positions(page)).toHaveText(beforeDelete ?? "");
+
+  const groupHandle = await box(page.getByRole("button", { name: "Move group group-1" }));
+  await page.mouse.move(groupHandle.x + 8, groupHandle.y + 8);
+  await page.mouse.down();
+  await page.mouse.move(groupHandle.x + 28, groupHandle.y + 8, { steps: 4 });
+  await page.mouse.up();
+  await expect(selection(page)).toHaveText("group-1");
+  await expect(positions(page)).toHaveText("card:86,80,160,80 ink:382,96,48,48 nearby:41,220,80,40");
   await expect(connections(page)).toHaveText("link:card.out>ink");
 });
