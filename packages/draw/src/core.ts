@@ -225,6 +225,13 @@ export function createDrawController(initial?: DrawDocument): DrawController {
 
 export { connectTool, freehandTool, insertNodeTool, panTool, selectTool, type CanvasTool, type ToolContext, type ToolGesture } from "./tools.js";
 export { decodeDrawDocument, encodeDrawDocument } from "./json.js";
+export {
+  createDrawPersistence,
+  type DrawPersistence,
+  type DrawPersistenceAdapter,
+  type DrawPersistenceState,
+  type DrawPersistenceStatus,
+} from "./persistence.js";
 export { getStrokeGeometry, isValidStrokeNode, strokeNodeType, strokeWidth } from "./stroke.js";
 export {
   getConnectionGeometry, hitTestConnection, connectionArrowheadTransform, defaultArrowheadPath,

@@ -14,7 +14,7 @@ On Linux, use `bun run --bun playwright install --with-deps chromium` if Chromiu
 
 For local editing, install [Portless](https://github.com/vercel-labs/portless) globally, then run `bun run dev` and open the named URL it prints. Run `PORTLESS=0 bun run dev` to bypass the proxy. Portless is not needed for `bun run check`.
 
-Open `/workflow` on the demo server to try live React and Solid nodes, an unregistered node, and the committed document snapshot. Open `/sketch` to draw freehand alongside editable note nodes.
+Open `/workflow` on the demo server to try live React and Solid nodes, an unregistered node, and the committed document snapshot. Open `/sketch` to draw freehand alongside editable note nodes. Open `/workspaces` to create, name, and reopen canvases from IndexedDB.
 
 ## Embed in React 19
 
@@ -59,3 +59,28 @@ const reopened = createDrawController(decodeDrawDocument(json));
 The codec supports version 1. Decoding throws on invalid JSON, invalid document contents, or an unsupported version, so construct the replacement controller before switching away from the current one. The file contains no camera, selection, active tool, gestures, or history. Mount a fresh canvas (in React, use a new `key`) with the new controller to reset its session state.
 
 JSON is a portable file format, not a persistence adapter. For a persisted editor, validate first, flush or resolve outstanding saves for the open document, and then bind the replacement controller to storage. Explicitly save its initial imported snapshot: opening a controller is not an edit and doesn't emit a committed change.
+
+## Persist a document
+
+Canvas editing does not require storage. A host that wants it implements `load(documentId)` / `save(documentId, snapshot)` and passes that adapter to `createDrawPersistence`. `snapshot` is the string from `encodeDrawDocument`; `load` returns that string or `undefined` when nothing is stored. Draw decodes with `decodeDrawDocument` before the host opens a controller.
+
+```ts
+import { createDrawController, createDrawPersistence } from "@skalahq/draw/core";
+
+const storage = new Map<string, string>();
+const persistence = createDrawPersistence({
+  async load(documentId) {
+    return storage.get(documentId);
+  },
+  async save(documentId, snapshot) {
+    storage.set(documentId, snapshot);
+  },
+});
+const snapshot = await persistence.load(documentId);
+const controller = createDrawController(snapshot);
+persistence.save(documentId, controller.getSnapshot());
+const unbind = persistence.bind(controller, documentId);
+await persistence.flush(documentId);
+```
+
+Saves for one document run one at a time. A save requested while another is in flight replaces any snapshot still waiting, so storage receives the latest document rather than every intermediate. `getState` and `subscribe` report `saving`, `saved`, or `failed`. A failed save leaves the open document and its undo history unchanged. Further edits replace the snapshot `retry` will send; Draw does not call the adapter again until `retry`. `flush` waits for the latest in-flight snapshot and rejects when the latest attempt failed, so a host can flush before switching or warn and stay. Opening a saved snapshot in a new controller starts a fresh history. Titles, workspace lists, and editor preferences are host data, not document fields.

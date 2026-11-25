@@ -1,0 +1,71 @@
+.workspace-editor {
+  grid-template-rows: auto auto minmax(16rem, 1fr) auto;
+}
+
+.workspace-library {
+  display: grid;
+  gap: 8px;
+}
+
+.workspace-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+}
+
+.workspace-editor [data-slot="field"] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.workspace-editor label {
+  color: var(--muted);
+  font-size: .8125rem;
+}
+
+.workspace-editor input {
+  box-sizing: border-box;
+  min-height: 40px;
+  min-width: 12rem;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--paper);
+  padding-inline: 10px;
+  color: inherit;
+  font: inherit;
+  font-size: .9rem;
+}
+
+.workspace-editor .editor-actions output {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  color: var(--muted);
+  font-size: .8125rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.workspace-warning {
+  margin: 0;
+  color: #842f21;
+  font-size: .8125rem;
+}
+
+.workspace-empty {
+  display: grid;
+  place-items: center;
+  margin: 0;
+  border: 1px dashed var(--line);
+  background: var(--paper);
+  color: var(--muted);
+}
+
+.workspace-editor [aria-label="Workspaces"] button,
+.workspace-editor [aria-label="Canvases"] button {
+  max-width: 16rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
