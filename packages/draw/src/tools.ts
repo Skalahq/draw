@@ -9,13 +9,16 @@ export type ToolContext = {
   center(): Point;
   hitTest(canvas: Point): DrawNode | undefined;
   select(id: string | null): void;
+  toggleSelect(id: string): void;
+  selectedIds(): readonly string[];
+  replaceSelection(ids: readonly string[]): void;
   startPan(event: PointerEvent): void;
   previewNode(id: string, preview: { offset?: Point; size?: Size }): void;
   readonly connectionEditing?: {
     pointerDown(event: PointerEvent): ToolGesture | void;
     keyDown(event: KeyboardEvent): boolean;
     handlePointerDown(point: Point): ToolGesture | undefined;
-    selectAt(point: Point): void;
+    selectAt(point: Point, additive?: boolean): void;
   };
   previewStroke?(path: string): void;
 };
@@ -46,12 +49,23 @@ export const selectTool: CanvasTool = {
   id: "select",
   pointerDown(context, event) {
     const start = context.toCanvas({ x: event.clientX, y: event.clientY });
-    const reconnect = context.connectionEditing?.handlePointerDown(start);
-    if (reconnect) return reconnect;
+    const additive = event.shiftKey;
+    if (!additive) {
+      const reconnect = context.connectionEditing?.handlePointerDown(start);
+      if (reconnect) return reconnect;
+    }
     const node = context.hitTest(start);
-    context.select(node?.id ?? null);
-    if (!node) return context.connectionEditing?.selectAt(start);
-    return boundsGesture(context, node, start, false);
+    if (node) {
+      if (additive) {
+        context.toggleSelect(node.id);
+        return;
+      }
+      context.select(node.id);
+      return boundsGesture(context, node, start, false);
+    }
+    if (additive) return context.connectionEditing?.selectAt(start, true);
+    context.select(null);
+    return context.connectionEditing?.selectAt(start);
   },
 };
 

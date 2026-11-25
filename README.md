@@ -45,6 +45,16 @@ The existing `renderNode(node)` callback still works and is the fallback for typ
 
 `getStrokeGeometry(node)` returns the node bounds and its node-local SVG path `d`; translate that path by the bounds origin to draw it in document coordinates.
 
+### Groups
+
+A group is a document member, not a node. `DrawGroup` is `{ id, memberIds }`, and `DrawDocument.groups` is omitted when there are none. A group id never collides with a node or connection id. Nested groups list child group ids in `memberIds`; membership is explicit and is never inferred from bounds. Overlapping nodes stay ungrouped until a command says otherwise.
+
+`commands.group(memberIds)` requires at least two existing nodes or groups that share a parent, including the root. It returns false for a connection id, a single member, mixed parents, or an ancestor grouped with its descendant. The new id is the smallest unused `group-n`, inserted where the first selected member sat. `commands.ungroup(groupId)` splices that group's members back into its parent and leaves positions and connection endpoints unchanged.
+
+`moveNode(groupId, position)` treats `position` as the top-left of the descendant bounds and translates every descendant by that delta. Width, height, and stroke points stay the same. Moving or resizing a member does not dissolve the group. `deleteNode(groupId)` removes that group, nested groups, descendant nodes, and connections incident to those nodes in one edit. Undo restores membership, positions, and connections.
+
+On a canvas, Shift-click adds nodes, strokes, connections, and groups to the selection. `g` or Control+G groups the selected nodes and groups. `G` or Control+Shift+G ungroups the selected group, or the shared parent when every selected member belongs to one. `[` and `]` cycle nodes and groups; Delete removes the primary node or group. Arrow keys move a selected group the same way they move a node. Open `/groups` in the demo to try a component node, a stroke, and a connection together.
+
 ## Editable JSON
 
 Open `/json` in the demo to download the committed drawing with **Export JSON**, or open a `.json` file with **Import JSON**. The file preserves document order and host metadata, including metadata on node types the current host cannot render.

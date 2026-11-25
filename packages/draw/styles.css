@@ -146,3 +146,37 @@
   stroke: currentColor;
   stroke-width: 1.5;
 }
+
+.draw-canvas .draw-group {
+  position: absolute;
+  box-sizing: border-box;
+  border: 1px dashed currentColor;
+  border-radius: 8px;
+  pointer-events: none;
+  z-index: 4;
+}
+
+.draw-canvas .draw-group[data-selected] {
+  border-style: solid;
+}
+
+.draw-canvas .draw-group-move {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  z-index: 3;
+  pointer-events: auto;
+  padding: 2px 6px;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  background: #fff;
+  color: inherit;
+  font: inherit;
+  font-size: 0.75rem;
+  line-height: 1.2;
+  cursor: grab;
+}
+
+.draw-canvas .draw-connection[data-selected] .draw-connection-line {
+  stroke-width: 3;
+}

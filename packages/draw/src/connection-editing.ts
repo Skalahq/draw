@@ -8,6 +8,8 @@ export type ConnectionViewState = Readonly<{
   pending?: ConnectionEndpoint;
   draft?: { path: string; replacing?: string };
   nodePreview?: { id: string; offset?: Point; size?: Size };
+  nodeOffsets?: Readonly<Record<string, Point>>;
+  selectedIds?: readonly string[];
 }>;
 
 type Reconnect = { connection: DrawConnection; end: ConnectionEnd };
@@ -48,7 +50,7 @@ export function createConnectionEditing({ context, read, write, options, zoom, s
   }
 
   function select(id?: string) {
-    if (id !== undefined) context.select(null);
+    if (id !== undefined) context.replaceSelection([id]);
     if (read().selected !== id || read().port) write({ selected: id, port: undefined });
   }
 
@@ -80,10 +82,10 @@ export function createConnectionEditing({ context, read, write, options, zoom, s
     return getConnectionGeometry(connection, (id) => doc.nodes.find((node) => node.id === id), options());
   }
 
-  function selectAt(point: Point): void {
+  function selectAt(point: Point, additive = false): void {
     const doc = context.getSnapshot();
     if (!doc.connections?.length) {
-      select();
+      if (!additive) select();
       return;
     }
     const nodes = new Map(doc.nodes.map((node) => [node.id, node]));
@@ -93,11 +95,18 @@ export function createConnectionEditing({ context, read, write, options, zoom, s
       const edge = doc.connections[i];
       const geometry = getConnectionGeometry(edge, (id) => nodes.get(id), geometryOptions);
       if (geometry && hitTestConnection(geometry, point, tolerance)) {
+        if (additive) {
+          const already = context.selectedIds().includes(edge.id);
+          context.toggleSelect(edge.id);
+          if (!already) write({ selected: edge.id, port: undefined });
+          else if (read().selected === edge.id) write({ selected: undefined, port: undefined });
+          return;
+        }
         select(edge.id);
         return;
       }
     }
-    select();
+    if (!additive) select();
   }
 
   function candidateConnection({ fixed, reconnect }: Pending, endpoint: ConnectionEndpoint): DrawConnection {

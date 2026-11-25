@@ -3,7 +3,7 @@
 import { createParts } from "@ui-sdk/react/primitive";
 import { memo, useCallback, useLayoutEffect, useRef, useSyncExternalStore, type ComponentType, type ReactNode, type Ref } from "react";
 import { canvasPrimitive, type CanvasOptions } from "./canvas.js";
-import type { DrawController, DrawNode, Size } from "./core.js";
+import { getGroupBounds, type DrawController, type DrawDocument, type DrawNode, type Size } from "./core.js";
 import type { ForeignNodeRenderer, MountedNodeRenderer, NodeRenderProps } from "./node-renderer.js";
 import { ConnectionLayers, type ConnectionRenderOptions } from "./react-connections.js";
 import { getStrokeGeometry, strokeWidth } from "./stroke.js";
@@ -13,7 +13,7 @@ export type { ForeignNodeRenderer, MountedNodeRenderer, NodeRenderProps } from "
 export type NodeRenderer = { render: ComponentType<NodeRenderProps> } | ForeignNodeRenderer;
 export type NodeRenderers = Readonly<Record<string, NodeRenderer | undefined>>;
 
-const Parts = createParts(canvasPrimitive, { root: "div", frame: "div", world: "div", node: "div", connectionView: "div" });
+const Parts = createParts(canvasPrimitive, { root: "div", frame: "div", world: "div", node: "div", group: "div", connectionView: "div" });
 
 export type DrawCanvasProps = CanvasOptions & ConnectionRenderOptions & {
   ref?: Ref<HTMLDivElement>;
@@ -89,6 +89,36 @@ const NodeShell = memo(function NodeShell({ controller, node, renderer, usesRegi
     </Parts.Node>
   );
 });
+function groupDepth(document: DrawDocument, id: string) {
+  let depth = 0;
+  let current = document.groups?.find((group) => group.memberIds.includes(id))?.id;
+  const seen = new Set<string>();
+  while (current && !seen.has(current)) {
+    const parentId: string = current;
+    seen.add(parentId);
+    depth += 1;
+    current = document.groups?.find((group) => group.memberIds.includes(parentId))?.id;
+  }
+  return depth;
+}
+
+function GroupFrame({ document, id }: { document: DrawDocument; id: string }) {
+  const bounds = getGroupBounds(document, id);
+  if (!bounds) return null;
+  const depth = groupDepth(document, id);
+  const pad = Math.max(6, 18 - depth * 6);
+  return (
+    <Parts.Group
+      value={id}
+      className="draw-group"
+      aria-label={`Group ${id}`}
+      style={{ left: bounds.x - pad, top: bounds.y - pad - 28, width: bounds.width + pad * 2, height: bounds.height + pad * 2 + 28 }}
+    >
+      <button type="button" className="draw-group-move" data-draw-group-move={id} aria-label={`Move group ${id}`} style={{ left: 2 + depth * 72 }} onPointerDown={(event) => event.preventDefault()}>Group</button>
+    </Parts.Group>
+  );
+}
+
 
 export function DrawCanvas({ controller, tool, renderNode, nodeRenderers, getNodeLabel, getPorts, getConnectionPath,
   renderConnectionLine, renderArrowhead, className, ...props }: DrawCanvasProps) {
@@ -111,6 +141,9 @@ export function DrawCanvas({ controller, tool, renderNode, nodeRenderers, getNod
                 renderConnectionLine={renderConnectionLine} renderArrowhead={renderArrowhead} />}
             </Parts.ConnectionView>
           ) : null}
+          {[...(document.groups ?? [])].sort((left, right) => groupDepth(document, left.id) - groupDepth(document, right.id)).map((group) => (
+            <GroupFrame key={group.id} document={document} id={group.id} />
+          ))}
           {document.nodes.map((node) => (
             <NodeShell
               key={node.id}

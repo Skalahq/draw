@@ -55,16 +55,23 @@ export function ConnectionLayers({ document, view, connecting, editable, getPort
   const hasConnections = !!document.connections?.length;
   const nodes = useMemo(() => hasConnections || connecting ? new Map(document.nodes.map((node) => [node.id, node])) : undefined,
     [document.nodes, hasConnections, connecting]);
-  const moving = view.nodePreview && nodes?.get(view.nodePreview.id);
-  const changed = moving && view.nodePreview && {
-    ...moving, bounds: {
-      x: moving.bounds.x + (view.nodePreview.offset?.x ?? 0),
-      y: moving.bounds.y + (view.nodePreview.offset?.y ?? 0),
-      width: view.nodePreview.size?.width ?? moving.bounds.width,
-      height: view.nodePreview.size?.height ?? moving.bounds.height,
-    },
+  const getNode = (id: string) => {
+    const node = nodes?.get(id);
+    if (!node) return;
+    const offset = view.nodeOffsets?.[id] ?? (view.nodePreview?.id === id ? view.nodePreview.offset : undefined);
+    const size = view.nodePreview?.id === id ? view.nodePreview.size : undefined;
+    if (!offset && !size) return node;
+    return {
+      ...node,
+      bounds: {
+        x: node.bounds.x + (offset?.x ?? 0),
+        y: node.bounds.y + (offset?.y ?? 0),
+        width: size?.width ?? node.bounds.width,
+        height: size?.height ?? node.bounds.height,
+      },
+    };
   };
-  const getNode = (id: string) => changed?.id === id ? changed : nodes?.get(id);
+  const marked = new Set(view.selectedIds ?? (view.selected ? [view.selected] : []));
   const selected = editable && document.connections?.find(({ id }) => id === view.selected);
   const selectedGeometry = selected && !view.draft && getConnectionGeometry(selected, getNode, { getPorts, getConnectionPath });
   const pending = connecting && view.pending;
@@ -77,7 +84,7 @@ export function ConnectionLayers({ document, view, connecting, editable, getPort
         <svg className="draw-connection-layer" width="1" height="1" aria-hidden="true">
           {document.connections?.map((connection) => connection.id !== view.draft?.replacing && (
             <ConnectionShape key={connection.id} connection={connection} source={getNode(connection.source.nodeId)}
-              target={getNode(connection.target.nodeId)} selected={connection.id === view.selected}
+              target={getNode(connection.target.nodeId)} selected={marked.has(connection.id)}
               getPorts={getPorts} getConnectionPath={getConnectionPath} renderConnectionLine={renderConnectionLine} renderArrowhead={renderArrowhead} />
           ))}
         </svg>

@@ -1,4 +1,4 @@
-import type { ConnectionEndpoint, DrawConnection, DrawDocument, DrawNode, Metadata } from "./core.js";
+import type { ConnectionEndpoint, DrawConnection, DrawDocument, DrawGroup, DrawNode, Metadata } from "./core.js";
 import { isValidStrokeNode, strokeNodeType } from "./stroke.js";
 
 function readJsonObject(value: unknown): Record<string, unknown> | undefined {
@@ -89,17 +89,72 @@ function readConnection(input: unknown, index: number, ids: Set<string>, nodeIds
   };
 }
 
+function readGroups(value: Record<string, unknown>, nodeIds: Set<string>, connectionIds: Set<string>): readonly DrawGroup[] | undefined {
+  if (value.groups === undefined) return;
+  if (!Array.isArray(value.groups)) throw new TypeError("Invalid Draw document: expected a groups array");
+  const groupIds = new Set<string>();
+  const drafts: { id: string; memberIds: unknown[] }[] = [];
+  for (const input of value.groups) {
+    const index = drafts.length;
+    const record = readJsonObject(input);
+    if (!record || !isKey(record.id) || groupIds.has(record.id) || nodeIds.has(record.id) || connectionIds.has(record.id)) {
+      throw new TypeError(`Invalid Draw groups[${index}]: expected a unique group id`);
+    }
+    if (!Array.isArray(record.memberIds) || record.memberIds.length === 0) {
+      throw new TypeError(`Invalid Draw groups[${index}].memberIds: expected a nonempty array`);
+    }
+    groupIds.add(record.id);
+    drafts.push({ id: record.id, memberIds: record.memberIds });
+  }
+  const seen = new Set<string>();
+  const groups: DrawGroup[] = [];
+  for (const draft of drafts) {
+    const index = groups.length;
+    const memberIds: string[] = [];
+    for (const member of draft.memberIds) {
+      if (!isKey(member) || seen.has(member) || member === draft.id || (!nodeIds.has(member) && !groupIds.has(member))) {
+        throw new TypeError(`Invalid Draw groups[${index}].memberIds: expected unique node or group ids`);
+      }
+      seen.add(member);
+      memberIds.push(member);
+    }
+    groups.push({ id: draft.id, memberIds });
+  }
+  const state = new Map<string, 0 | 1 | 2>();
+  const byId = new Map(groups.map((group) => [group.id, group]));
+  const visit = (id: string): boolean => {
+    const mark = state.get(id) ?? 0;
+    if (mark === 1) return true;
+    if (mark === 2) return false;
+    state.set(id, 1);
+    for (const member of byId.get(id)?.memberIds ?? []) {
+      if (byId.has(member) && visit(member)) return true;
+    }
+    state.set(id, 2);
+    return false;
+  };
+  if (groups.some((group) => visit(group.id))) throw new TypeError("Invalid Draw document: group membership is cyclic");
+  return groups;
+}
+
 function readVersion1(value: Record<string, unknown>): DrawDocument {
   if (!Array.isArray(value.nodes)) throw new TypeError("Invalid Draw document: expected a nodes array");
   const nodes: DrawNode[] = [];
   const nodeIds = new Set<string>();
   for (const node of value.nodes) nodes.push(readNode(node, nodes.length, nodeIds));
-  if (value.connections === undefined) return { version: 1, nodes };
-  if (!Array.isArray(value.connections)) throw new TypeError("Invalid Draw document: expected a connections array");
-  const connections: DrawConnection[] = [];
-  const connectionIds = new Set<string>();
-  for (const connection of value.connections) connections.push(readConnection(connection, connections.length, connectionIds, nodeIds));
-  return { version: 1, nodes, connections };
+  let connections: DrawConnection[] | undefined;
+  if (value.connections !== undefined) {
+    if (!Array.isArray(value.connections)) throw new TypeError("Invalid Draw document: expected a connections array");
+    connections = [];
+    const connectionIds = new Set<string>();
+    for (const connection of value.connections) connections.push(readConnection(connection, connections.length, connectionIds, nodeIds));
+  }
+  const connectionIds = new Set(connections?.map((connection) => connection.id));
+  const groups = readGroups(value, nodeIds, connectionIds);
+  if (connections && groups) return { version: 1, nodes, connections, groups };
+  if (connections) return { version: 1, nodes, connections };
+  if (groups) return { version: 1, nodes, groups };
+  return { version: 1, nodes };
 }
 
 function readDocument(input: unknown): DrawDocument {
