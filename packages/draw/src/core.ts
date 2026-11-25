@@ -238,3 +238,7 @@ export {
   type ArrowheadGeometry, type ConnectionAnchors, type ConnectionGeometry, type ConnectionGeometryOptions,
   type ConnectionPathSegment, type DrawPort,
 } from "./connections.js";
+export {
+  exportDrawPng, exportDrawSvg,
+  type DrawExportMark, type DrawExportOptions, type DrawExportUnsupported, type DrawNodeExport, type DrawPngExport, type DrawSvgExport,
+} from "./export.js";

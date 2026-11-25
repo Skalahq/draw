@@ -84,3 +84,22 @@ await persistence.flush(documentId);
 ```
 
 Saves for one document run one at a time. A save requested while another is in flight replaces any snapshot still waiting, so storage receives the latest document rather than every intermediate. `getState` and `subscribe` report `saving`, `saved`, or `failed`. A failed save leaves the open document and its undo history unchanged. Further edits replace the snapshot `retry` will send; Draw does not call the adapter again until `retry`. `flush` waits for the latest in-flight snapshot and rejects when the latest attempt failed, so a host can flush before switching or warn and stay. Opening a saved snapshot in a new controller starts a fresh history. Titles, workspace lists, and editor preferences are host data, not document fields.
+## Export SVG and PNG
+
+Open `/export` in the demo to download the committed drawing. Export reads the document snapshot, so pan, zoom, selection, and an in-progress stroke do not change the file. Built-in notes export as labeled rectangles and strokes export through `getStrokeGeometry` without a host renderer. Connections reuse `getConnectionGeometry`, including the host path and ports.
+
+```ts
+import { exportDrawPng, exportDrawSvg, type DrawNodeExport } from "@skalahq/draw/core";
+
+const exported = exportDrawSvg(controller.getSnapshot(), {
+  crop: { x: 40, y: 48, width: 160, height: 72 },
+  getNodeLabel: (node) => typeof node.metadata?.label === "string" ? node.metadata.label : node.type,
+  exportNode(node): DrawNodeExport | undefined {
+    if (node.type === "badge") return [{ kind: "rect", x: 0, y: 0, width: node.bounds.width, height: node.bounds.height, fill: "#779961" }];
+    if (node.type === "widget") return "unsupported";
+  },
+});
+const png = exportDrawPng(controller.getSnapshot(), { scale: 2 });
+```
+
+Omit `crop` to frame the exportable ink. `scale` changes PNG pixels only; SVG user units stay in document coordinates. `exportNode` marks are node-local. Return `"unsupported"` to list a node in `unsupported` instead of drawing a placeholder. An omitted callback, or `undefined`, uses the built-in stroke or labeled rectangle. Invalid marks throw rather than disappearing.

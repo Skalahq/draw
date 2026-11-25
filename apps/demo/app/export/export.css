@@ -1,0 +1,2 @@
+.export-footer { align-items: start; }
+.export-preview { width: min(100%, 360px); height: auto; border: 1px solid var(--line); background: #fff; }
