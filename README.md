@@ -2,6 +2,28 @@
 
 Draw is an embeddable canvas. The host owns its controls and node content; Draw owns document edits and history.
 
+## Public API
+
+`@skalahq/draw` publishes four entry points. Do not import `packages/draw/src`.
+
+- `@skalahq/draw/core` — `createDrawController`, `selectTool`, `panTool`, `connectTool`, `freehandTool`, `insertNodeTool`, `encodeDrawDocument`, `decodeDrawDocument`, `createDrawPersistence`, `exportDrawSvg`, `exportDrawPng`
+- `@skalahq/draw/react` — `DrawCanvas`. React 19 and React DOM come from the host.
+- `@skalahq/draw/dom` — `mountDraw`, for a host with no React
+- `@skalahq/draw/styles.css` — structural layout; import it once
+
+```ts
+import { createDrawController, selectTool } from "@skalahq/draw/core";
+import { mountDraw } from "@skalahq/draw/dom";
+import "@skalahq/draw/styles.css";
+
+const controller = createDrawController();
+const canvas = mountDraw(element, { controller, tool: selectTool, ariaLabel: "Canvas" });
+canvas.update({ tool: selectTool });
+canvas.dispose();
+```
+
+`mountDraw` returns `{ update(patch), dispose() }`. `update` applies `controller`, `tool`, `ariaLabel`, `getNodeLabel`, and `nodeRenderers`. It paints nodes only; `DrawCanvas` is what draws connections and groups.
+
 ## Run the demo
 
 ```sh
