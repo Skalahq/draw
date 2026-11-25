@@ -1,6 +1,6 @@
 "use client";
 
-import { createDrawController, panTool, selectTool, type CanvasTool } from "@skalahq/draw/core";
+import { connectTool, createDrawController, panTool, selectTool, type CanvasTool } from "@skalahq/draw/core";
 import { Button } from "@ui-sdk/react/button";
 import { useRef, useState, useSyncExternalStore } from "react";
 import { createWorkflowDocument, createWorkflowNodeRenderers, WorkflowCanvas } from "./workflow-canvas";
@@ -36,6 +36,7 @@ export default function WorkflowPage() {
       <div className="editor-tools">
         <Button aria-pressed={tool === selectTool} onClick={() => chooseTool(selectTool)}>Select</Button>
         <Button aria-pressed={tool === panTool} onClick={() => chooseTool(panTool)}>Pan</Button>
+        <Button aria-pressed={tool === connectTool} onClick={() => chooseTool(connectTool)}>Connect</Button>
         <Button disabled={!solid} onClick={() => {
           if (solid) controller.commands.moveNode(solid.id, { x: solid.bounds.x + 16, y: solid.bounds.y });
         }}>Nudge Solid node</Button>

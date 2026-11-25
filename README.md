@@ -14,6 +14,8 @@ On Linux, use `bun run --bun playwright install --with-deps chromium` if Chromiu
 
 For local editing, install [Portless](https://github.com/vercel-labs/portless) globally, then run `bun run dev` and open the named URL it prints. Run `PORTLESS=0 bun run dev` to bypass the proxy. Portless is not needed for `bun run check`.
 
+`bun run verify:release` packs `@skalahq/draw` and installs that tarball in temporary consumers outside this workspace. It typechecks the public exports, checks `styles.css`, mounts a React-free DOM host, and runs a Next.js production build. It does not publish to a registry. `/profile` on the demo measures pan, zoom, drag, and freehand against about 1,000 nodes plus connections; recorded timings live in `docs/release-profile.md`.
+
 Open `/workflow` on the demo server to try live React and Solid nodes, an unregistered node, and the committed document snapshot. Open `/sketch` to draw freehand alongside editable note nodes. Open `/workspaces` to create, name, and reopen canvases from IndexedDB.
 
 ## Embed in React 19

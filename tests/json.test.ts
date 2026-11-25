@@ -46,6 +46,29 @@ test("editable JSON preserves connections and rejects a malformed stroke", () =>
   }))).toThrow(/freehand stroke/);
 });
 
+test("editable JSON preserves groups, unknown types, and arbitrary metadata without loss", () => {
+  const vendor = {
+    id: "vendor",
+    type: "vendor:unregistered",
+    bounds: { x: 200, y: 24, width: 80, height: 40 },
+    metadata: { label: "keep me", nested: { flag: true, count: 2 }, tags: ["a", "b"] },
+  };
+  const edge = { id: "edge", source: { nodeId: "host-01", portId: "out" }, target: { nodeId: "stroke-01" }, metadata: { kind: "review" } };
+  const groups = [
+    { id: "group-1", memberIds: ["host-01", "stroke-01"] },
+    { id: "group-2", memberIds: ["group-1", "vendor"] },
+  ];
+  const source = createDrawController({ version: 1, nodes: [unregistered, stroke, vendor], connections: [edge], groups });
+  const json = encodeDrawDocument(source.getSnapshot());
+  const parsed = JSON.parse(json);
+  expect(parsed.nodes).toEqual([unregistered, stroke, vendor]);
+  expect(parsed.connections).toEqual([edge]);
+  expect(parsed.groups).toEqual(groups);
+  expect(parsed.camera).toBeUndefined();
+  expect(decodeDrawDocument(json)).toEqual(source.getSnapshot());
+  expect(encodeDrawDocument(decodeDrawDocument(json))).toBe(json);
+});
+
 test("the versioned format owns only document fields and does not interpret metadata keys", () => {
   const snapshot = decodeDrawDocument(`{
     "nodes": [{"id":"host-01","type":"vendor:unregistered","bounds":{"height":80,"width":144,"y":24,"x":-12.5},

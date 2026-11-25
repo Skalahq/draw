@@ -1,6 +1,8 @@
 "use client";
 
-import type { DrawDocument, DrawNode } from "@skalahq/draw/core";
+import {
+  connectionArrowheadTransform, defaultArrowheadPath, type DrawDocument, type DrawNode, type DrawPort,
+} from "@skalahq/draw/core";
 import { DrawCanvas, type DrawCanvasProps, type NodeRenderers, type NodeRenderProps } from "@skalahq/draw/react";
 import { Button } from "@ui-sdk/react/button";
 import { useRef, useState } from "react";
@@ -30,7 +32,19 @@ export function createWorkflowDocument(): DrawDocument {
         metadata: { label: "External step", source: { system: "inventory", key: "M-72" } },
       },
     ],
+    connections: [{
+      id: "review-flow",
+      source: { nodeId: "workflow-react", portId: "out" },
+      target: { nodeId: "workflow-solid", portId: "in" },
+      metadata: { kind: "review" },
+    }],
   };
+}
+
+function workflowPorts(node: DrawNode): readonly DrawPort[] {
+  if (node.id === "workflow-react") return [{ id: "out", position: { x: node.bounds.width, y: 28 }, label: "out" }];
+  if (node.id === "workflow-solid") return [{ id: "in", position: { x: 0, y: 28 }, label: "in" }];
+  return [];
 }
 
 function nodeLabel(node: DrawNode) {
@@ -86,6 +100,12 @@ export function WorkflowCanvas({
       className={className ? `editor-canvas workflow-canvas ${className}` : "editor-canvas workflow-canvas"}
       getNodeLabel={getNodeLabel}
       nodeRenderers={nodeRenderers}
+      getPorts={workflowPorts}
+      getConnectionPath={(_connection, { source, target }) => [{ to: target, control: { x: target.x, y: source.y - 72 } }]}
+      renderConnectionLine={(_connection, geometry) => <path className="draw-connection-line" data-arrow="review" d={geometry.path} />}
+      renderArrowhead={(_connection, geometry) => (
+        <path className="draw-arrowhead" data-arrow="review-head" d={defaultArrowheadPath} transform={connectionArrowheadTransform(geometry.arrowhead)} />
+      )}
     />
   );
 }
