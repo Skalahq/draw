@@ -34,3 +34,6 @@ _Avoid_: Canvas (the surface inside the editor)
 
 **Workspace**:
 A collection of canvases in the demo editor. It is not part of a Draw document.
+
+**Persistence**:
+Optional host storage for document snapshots. A canvas can be edited without it. A snapshot holds document bytes only; workspace lists, canvas titles, and editor preferences stay in the host editor.

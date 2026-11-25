@@ -20,8 +20,65 @@
   box-sizing: border-box;
 }
 
+.draw-canvas .draw-node-content {
+  isolation: isolate;
+  width: 100%;
+  height: 100%;
+}
+
+.draw-canvas .draw-stroke-node {
+  pointer-events: none;
+}
+
+.draw-canvas .draw-stroke {
+  display: block;
+  overflow: visible;
+}
+
+.draw-canvas .draw-stroke > path {
+  pointer-events: stroke;
+}
+
+.draw-canvas .draw-stroke-preview {
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: 1px;
+  height: 1px;
+  overflow: visible;
+  pointer-events: none;
+  z-index: 3;
+}
+
 .draw-canvas .draw-node[data-draw-preview] {
   z-index: 2;
+}
+
+.draw-canvas .draw-node-content {
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  touch-action: auto;
+  user-select: text;
+}
+
+.draw-canvas .draw-move {
+  position: absolute;
+  inset: 4px 4px auto auto;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  cursor: grab;
+  touch-action: none;
+}
+
+.draw-canvas .draw-move::before {
+  content: "";
+  width: 8px;
+  height: 6px;
+  border-block: 2px solid currentColor;
 }
 
 .draw-canvas .draw-resize {
@@ -36,4 +93,97 @@
 
 .draw-canvas .draw-node[data-selected] > .draw-resize {
   display: block;
+}
+
+.draw-canvas .draw-connection-view {
+  position: absolute;
+  inset: 0 auto auto 0;
+  pointer-events: none;
+}
+
+.draw-canvas .draw-connection-layer,
+.draw-canvas .draw-connection-overlay {
+  position: absolute;
+  inset: 0 auto auto 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.draw-canvas .draw-connection-layer {
+  z-index: 0;
+}
+
+.draw-canvas .draw-connection-overlay {
+  z-index: 2;
+}
+
+.draw-canvas .draw-connection-line {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+}
+
+.draw-canvas .draw-connection-stroke {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+}
+
+.draw-canvas .draw-arrowhead {
+  fill: currentColor;
+  stroke: none;
+}
+
+.draw-canvas .draw-connection-draft {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-dasharray: 5 4;
+}
+
+.draw-canvas .draw-connection-handle {
+  fill: #ffffff;
+  stroke: currentColor;
+  stroke-width: 2;
+}
+
+.draw-canvas .draw-port {
+  fill: #ffffff;
+  stroke: currentColor;
+  stroke-width: 1.5;
+}
+
+.draw-canvas .draw-group {
+  position: absolute;
+  box-sizing: border-box;
+  border: 1px dashed currentColor;
+  border-radius: 8px;
+  pointer-events: none;
+  z-index: 4;
+}
+
+.draw-canvas .draw-group[data-selected] {
+  border-style: solid;
+}
+
+.draw-canvas .draw-group-move {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  z-index: 3;
+  pointer-events: auto;
+  padding: 2px 6px;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  background: #fff;
+  color: inherit;
+  font: inherit;
+  font-size: 0.75rem;
+  line-height: 1.2;
+  cursor: grab;
+}
+
+.draw-canvas .draw-connection[data-selected] .draw-connection-line,
+.draw-canvas .draw-connection[data-selected] .draw-connection-stroke {
+  stroke-width: 3;
 }

@@ -10,7 +10,8 @@
     "build": "bun run --filter @skalahq/draw build && bun run --filter @draw/demo build",
     "test": "bun test ./tests",
     "smoke": "bun run --bun playwright test",
-    "check": "bun run typecheck && bun run test && bun run build && bun run smoke"
+    "check": "bun run typecheck && bun run test && bun run build && bun run smoke",
+    "verify:release": "bun scripts/verify-release.mts"
   },
   "devDependencies": {
     "@playwright/test": "1.65.1",

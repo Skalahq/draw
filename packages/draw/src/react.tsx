@@ -1,55 +1,160 @@
 "use client";
 
 import { createParts } from "@ui-sdk/react/primitive";
-import { memo, useSyncExternalStore, type ReactNode, type Ref } from "react";
+import { memo, useCallback, useLayoutEffect, useRef, useSyncExternalStore, type ComponentType, type ReactNode, type Ref } from "react";
 import { canvasPrimitive, type CanvasOptions } from "./canvas.js";
-import type { DrawNode } from "./core.js";
-import { selectTool } from "./tools.js";
+import { getGroupBounds, type DrawController, type DrawDocument, type DrawNode, type Size } from "./core.js";
+import type { ForeignNodeRenderer, MountedNodeRenderer, NodeRenderProps } from "./node-renderer.js";
+import { ConnectionLayers, type ConnectionRenderOptions } from "./react-connections.js";
+import { getStrokeGeometry, strokeWidth } from "./stroke.js";
+import { connectTool, selectTool } from "./tools.js";
 
-const Parts = createParts(canvasPrimitive, { root: "div", frame: "div", world: "div", node: "div" });
+export type { ForeignNodeRenderer, MountedNodeRenderer, NodeRenderProps } from "./node-renderer.js";
+export type NodeRenderer = { render: ComponentType<NodeRenderProps> } | ForeignNodeRenderer;
+export type NodeRenderers = Readonly<Record<string, NodeRenderer | undefined>>;
 
-export type DrawCanvasProps = CanvasOptions & {
+const Parts = createParts(canvasPrimitive, { root: "div", frame: "div", world: "div", node: "div", group: "div", connectionView: "div" });
+
+export type DrawCanvasProps = CanvasOptions & ConnectionRenderOptions & {
   ref?: Ref<HTMLDivElement>;
   className?: string;
   "aria-label"?: string;
   "aria-describedby"?: string;
   renderNode?: (node: DrawNode) => ReactNode;
+  nodeRenderers?: NodeRenderers;
   getNodeLabel?: (node: DrawNode) => string;
 };
 
-const NodeShell = memo(function NodeShell({ node, renderNode, getNodeLabel, resizable }: {
+function ForeignContent({ renderer, node, resize }: NodeRenderProps & { renderer: ForeignNodeRenderer }) {
+  const container = useRef<HTMLDivElement>(null);
+  const mounted = useRef<MountedNodeRenderer>(null);
+
+  useLayoutEffect(() => {
+    const instance = renderer.mount(container.current!);
+    mounted.current = instance;
+    return () => {
+      mounted.current = null;
+      instance.dispose();
+    };
+  }, [renderer]);
+
+  useLayoutEffect(() => {
+    mounted.current?.update({ node, resize });
+  }, [renderer, node, resize]);
+
+  return <div ref={container} className="draw-node-content" data-draw-interactive="" />;
+}
+
+const NodeShell = memo(function NodeShell({ controller, node, renderer, usesRegistry, renderNode, getNodeLabel, selectable }: {
+  controller: DrawController;
   node: DrawNode;
+  renderer: NodeRenderer | undefined;
+  usesRegistry: boolean;
   renderNode: DrawCanvasProps["renderNode"];
   getNodeLabel: DrawCanvasProps["getNodeLabel"];
-  resizable: boolean;
+  selectable: boolean;
 }) {
   const { x, y, width, height } = node.bounds;
+  const stroke = getStrokeGeometry(node);
+  const label = getNodeLabel?.(node) ?? (stroke ? "Freehand stroke" : node.type);
+  const id = node.id;
+  const resize = useCallback((size: Size) => controller.commands.resizeNode(id, size), [controller, id]);
+  const ReactContent = renderer && "render" in renderer ? renderer.render : undefined;
   return (
     <Parts.Node
-      value={node.id}
-      className="draw-node"
-      aria-label={getNodeLabel?.(node) ?? node.type}
+      value={id}
+      className={stroke ? "draw-node draw-stroke-node" : "draw-node"}
+      aria-label={label}
       style={{ left: x, top: y, width: `var(--draw-preview-width, ${width}px)`, height: `var(--draw-preview-height, ${height}px)` }}
     >
-      {renderNode?.(node) ?? <span>{node.type}</span>}
-      {resizable && <span aria-hidden="true" className="draw-resize" data-draw-resize={node.id} />}
+      {stroke ? (
+        <svg className="draw-stroke" aria-hidden="true" width={width} height={height}>
+          <path d={stroke.d} fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      ) : ReactContent ? (
+        <div key={node.type} className="draw-node-content" data-draw-interactive="">
+          <ReactContent node={node} resize={resize} />
+        </div>
+      ) : renderer && "mount" in renderer ? (
+        <ForeignContent key={node.type} renderer={renderer} node={node} resize={resize} />
+      ) : (
+        renderNode?.(node) ?? (usesRegistry
+          ? <span className="draw-node-placeholder">Unknown node type: {node.type}</span>
+          : <span>{node.type}</span>)
+      )}
+      {selectable && usesRegistry && !stroke ? (
+        <button type="button" className="draw-move" aria-label={`Move ${label}`} data-draw-move={id} />
+      ) : null}
+      {selectable && !stroke ? <span aria-hidden="true" className="draw-resize" data-draw-resize={id} /> : null}
     </Parts.Node>
   );
 });
+function groupDepth(document: DrawDocument, id: string) {
+  let depth = 0;
+  let current = document.groups?.find((group) => group.memberIds.includes(id))?.id;
+  const seen = new Set<string>();
+  while (current && !seen.has(current)) {
+    const parentId: string = current;
+    seen.add(parentId);
+    depth += 1;
+    current = document.groups?.find((group) => group.memberIds.includes(parentId))?.id;
+  }
+  return depth;
+}
 
-export function DrawCanvas({ controller, tool, renderNode, getNodeLabel, className, ...props }: DrawCanvasProps) {
+function GroupFrame({ document, id }: { document: DrawDocument; id: string }) {
+  const bounds = getGroupBounds(document, id);
+  if (!bounds) return null;
+  const depth = groupDepth(document, id);
+  const pad = Math.max(6, 18 - depth * 6);
+  return (
+    <Parts.Group
+      value={id}
+      className="draw-group"
+      aria-label={`Group ${id}`}
+      style={{ left: bounds.x - pad, top: bounds.y - pad - 28, width: bounds.width + pad * 2, height: bounds.height + pad * 2 + 28 }}
+    >
+      <button type="button" className="draw-group-move" data-draw-group-move={id} aria-label={`Move group ${id}`} style={{ left: 2 + depth * 72 }}>Group</button>
+    </Parts.Group>
+  );
+}
+
+
+export function DrawCanvas({ controller, tool, renderNode, nodeRenderers, getNodeLabel, getPorts, getConnectionPath,
+  renderConnectionLine, renderArrowhead, className, ...props }: DrawCanvasProps) {
   const document = useSyncExternalStore(controller.subscribeCommitted, controller.getSnapshot, controller.getSnapshot);
   return (
     <Parts.Root
       {...props}
       documentController={controller}
       tool={tool}
+      getPorts={getPorts}
+      getConnectionPath={getConnectionPath}
       className={className ? `draw-canvas ${className}` : "draw-canvas"}
     >
       <Parts.Frame className="draw-frame">
         <Parts.World className="draw-world">
+          {(document.connections?.length || tool === connectTool) ? (
+            <Parts.ConnectionView className="draw-connection-view">
+              {(view) => <ConnectionLayers document={document} view={view} connecting={tool === connectTool}
+                editable={tool === selectTool || tool === connectTool} getPorts={getPorts} getConnectionPath={getConnectionPath}
+                renderConnectionLine={renderConnectionLine} renderArrowhead={renderArrowhead} />}
+            </Parts.ConnectionView>
+          ) : null}
+          {[...(document.groups ?? [])].sort((left, right) => groupDepth(document, left.id) - groupDepth(document, right.id)).map((group) => (
+            <GroupFrame key={group.id} document={document} id={group.id} />
+          ))}
           {document.nodes.map((node) => (
-            <NodeShell key={node.id} node={node} renderNode={renderNode} getNodeLabel={getNodeLabel} resizable={tool === selectTool} />
+            <NodeShell
+              key={node.id}
+              controller={controller}
+              node={node}
+              renderer={nodeRenderers && Object.hasOwn(nodeRenderers, node.type) ? nodeRenderers[node.type] : undefined}
+              usesRegistry={nodeRenderers !== undefined}
+              renderNode={renderNode}
+              getNodeLabel={getNodeLabel}
+              selectable={tool === selectTool}
+            />
           ))}
         </Parts.World>
       </Parts.Frame>

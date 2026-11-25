@@ -1,10 +1,11 @@
 {
   "compilerOptions": {
+    "lib": ["ES2024", "DOM"],
     "target": "ES2022",
     "module": "NodeNext",
     "strict": true,
     "skipLibCheck": true,
     "types": ["bun"]
   },
-  "include": ["tests/**/*.ts", "e2e/**/*.ts", "playwright.config.ts"]
+  "include": ["tests/**/*.ts", "e2e/**/*.ts", "scripts/**/*.mts", "playwright.config.ts"]
 }
